@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
+# @author: Samuel Andrade do Couto
+# @email: samuelcoouto@hotmail.com
+# @desc: Programa que realiza submissões automáticas dentro de um repositório
+#        institucional que utiliza DSpace.
+# @version: 0.1
 
 import bs4
 import requests
 import os
 
 # @link_elems retorna uma lista de links com base no esquema do Lexml
+# por enquanto retorna apenas a lista de referencias
+# TODO: -parsing coletar outros atributos sobre dado arquivo
+#       -resolver o problema do encoding, de alguma forma(problema parece ser da parte do servidor)
 def parsing_module(my_file):
     local_file = open(my_file, 'rb')
     my_file_soup = bs4.BeautifulSoup(local_file, 'lxml')
@@ -12,6 +20,7 @@ def parsing_module(my_file):
     refs = [] # cria uma lista de referências vazia
     for elem in link_elems:
         refs.append(elem['href'])
+    return refs
 
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
 # TODO: descobrir o porquê do get não estar retornando
@@ -23,11 +32,11 @@ def download_module(my_url):
         code.write(my_request.content)
 
 # função principal
+# TODO: Escolher uma lógica mais bem elaborada para a função principal:
+#       - Baixar tudo -> parsing no diretório (ou)
+#       - Baixa um por vez -> parsing individual (?)
 def main():
     path = raw_input('Escolha um diretorio para as operacoes:')
     for filename in os.listdir(path):
-        url_local = raw_input("Digite a URL:")
-        os.system('clear')
-        print 'Baixando arquivo...\n'
-        #download_module(url_local)
-        main_file = open
+        local_ref = []
+        local_ref = parsing_module(filename)
