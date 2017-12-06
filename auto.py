@@ -15,11 +15,17 @@ import os
 #       -resolver o problema do encoding, de alguma forma(problema parece ser da parte do servidor)
 def parsing_module(my_file):
     local_file = open(my_file, 'rb')
-    my_file_soup = bs4.BeautifulSoup(local_file, 'lxml')
-    link_elems = my_file_soup.findAll('a', {'class' : 'noprint', 'href' : True})
+    soup = bs4.BeautifulSoup(local_file, 'lxml')
+    desc_elems = soup.findAll('div', {'class' : 'result_col2'})
+    localidade = desc_elems[0].text
+    autoridade = desc_elems[1].text
+    titulo = desc_elems[2].text
+    data = desc_elems[3].text
+    url_elems = soup.findAll('a', {'class' : 'noprint', 'href' : True})
     refs = [] # cria uma lista de referências vazia
-    for elem in link_elems:
+    for elem in url_elems:
         refs.append(elem['href'])
+    close(local_file)
     return refs
 
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
@@ -36,7 +42,8 @@ def download_module(my_url):
 #       - Baixar tudo -> parsing no diretório (ou)
 #       - Baixa um por vez -> parsing individual (?)
 def main():
-    path = raw_input('Escolha um diretorio para as operacoes:')
+    path = input('Escolha um diretorio para as operacoes:')
     for filename in os.listdir(path):
-        local_ref = []
-        local_ref = parsing_module(filename)
+
+        #local_ref = []
+        #local_ref = parsing_module(filename)
