@@ -3,17 +3,16 @@
 # @email: samuelcoouto@hotmail.com
 # @desc: Programa que realiza submissões automáticas dentro de um repositório
 #        institucional que utiliza DSpace.
-# @version: 0.1
+# @version: 0.2
 
 import bs4
 import requests
-import os
+import os, glob
 
-# @link_elems retorna uma lista de links com base no esquema do Lexml
-# por enquanto retorna apenas a lista de referencias
-# TODO: -parsing coletar outros atributos sobre dado arquivo
-#       -resolver o problema do encoding, de alguma forma(problema parece ser da parte do servidor)
+# função de parsing coleta atributos sobre os metadados e chama a função de baixar
+# as urls contidas nesses dados
 def parsing_module(my_file):
+    print("Parsing file %s...\n\n" % (my_file))
     local_file = open(my_file, 'rb')
     soup = bs4.BeautifulSoup(local_file, 'lxml')
     desc_elems = soup.findAll('div', {'class' : 'result_col2'})
@@ -25,25 +24,36 @@ def parsing_module(my_file):
     refs = [] # cria uma lista de referências vazia
     for elem in url_elems:
         refs.append(elem['href'])
-    close(local_file)
-    return refs
+    for ref in refs:
+        download_module(ref, titulo)
 
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
-# TODO: descobrir o porquê do get não estar retornando
-def download_module(my_url):
-    print 'Recebendo de: %s\n' % (my_url)
-    my_request = requests.get(my_url, timeout=10)
-    print 'Codigo de status: %d' % my_request.status_code
-    with open('file1.htm', 'wb') as code:
-        code.write(my_request.content)
+def download_module(my_url, title):
+    local_title = title
+    #para remover caracteres invalidos na hora de salvar o arquivo
+    for ch in ['/', '-', ' ', ';', ':', '.']:
+        local_title = local_title.replace(ch, '_')
+    print('Recebendo de: %s\n' % my_url)
+    my_request = requests.get(my_url)
+    print('Codigo de status: %d' % my_request.status_code)
+    with open('%s.pdf' % (local_title), 'wb') as f:
+        f.write(my_request.content)
 
 # função principal
-# TODO: Escolher uma lógica mais bem elaborada para a função principal:
-#       - Baixar tudo -> parsing no diretório (ou)
-#       - Baixa um por vez -> parsing individual (?)
+# TODO: Implementar módulo que utiliza wget. Quando salvar os arquivos, lembrar
+#       de salvar com a extensão .html no final.
 def main():
-    path = input('Escolha um diretorio para as operacoes:')
-    for filename in os.listdir(path):
-
-        #local_ref = []
-        #local_ref = parsing_module(filename)
+    #path = input('Escolha o diretorio que contem os arquivos a serem processados:\n')
+    path = '/home/samuel/Next/test2/'
+    if os.path.exists(path):
+        for filename in glob.glob(os.path.join(path, '*.html')):
+            local_file = open(filename, 'rb')
+            soup = bs4.BeautifulSoup(local_file, 'lxml')
+            print(type(soup))
+            local_refs = parsing_module(filename)
+            for ref in local_refs:
+                print(ref)
+            print('\n\n')
+            local_file.close()
+    else:
+        print("Forneca um caminho valido!\n")
