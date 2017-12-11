@@ -1,0 +1,24 @@
+Planejamento: O que o programa deve fazer?
+Considerando que as informações serão obtidas a partir do Lexml, o programa deve:
+- Fazer o download de uma série de arquivos HTML;
+- Fazer o parsing desses arquivos e identificar atributos como: nome, tribunal, etc;
+- Das URLs obtidas dentro do arquivo, fazer o download dessas e renomeá-las de acordo com o nome obtido no HTML de metadados;
+- Incluir esses arquivos dentro de uma pasta arbitrária.
+
+Após adquirir esses documentos, passaremos para a parte de indexá-los dentro do repositório.
+Para fazer isso, o programa deve se comportar da seguinte forma:
+- Pega os documentos dentro da pasta obtida no final do último processo;
+- A partir disso, criar um script para se comunicar com a api REST do repositório (achei um site que ajuda nisso);
+- Submeter esses arquivos.
+
+Dentro do DSpace, enquanto não modificarmos o código-fonte para nossas reais necessidades, a organização será dada da seguinte forma:
+
+Tribunal (Comunidade)
+- Tipo de arquivo (Coleções)
+-- Arquivos em si (Arquivos finais submetidos)
+
+Sendo que a hierarquia é "top-down".
+
+Um problema encontrado (vide o link da documentação https://wiki.duraspace.org/display/DSDOC6x/Ingesting+HTML+Archives) é o de submeter
+arquivos HTML. A dificuldade encontrada é em relação à persistência das URLs dentro desse arquivo, que podem, em algum momento futuro,
+apontar para páginas não encontradas. Isso é algo que só quando formos implementar algo no código fonte para tratar que poderá ser resolvido.
