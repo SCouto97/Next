@@ -22,14 +22,7 @@ def parsing_module(my_file, downl_dir):
     autoridade = desc_elems[1].text
     titulo = desc_elems[2].text
     data = desc_elems[3].text
-    # ext_tag = '<div class="result_col23">'
-    # ext_soup = bs4.BeautifulSoup(ext_tag, 'lxml').text
-    # ext_chunk = ext_soup.find('span', {'class' : 'noprint'})
-    # file_type = ext_chunk.split('/')
-    # extension = file_type[1]
-    # if extension.endswith(' ) '):
-    #     extension = extension[:-3]
-    # print('\n\n\ndebug value: %s\n\n\n' % extension)
+    #ext_elems = soup.findAll('span', {'class' : 'noprint'})    
     url_elems = soup.findAll('a', {'class' : 'noprint', 'href' : True})
     refs = [] # cria uma lista de referências vazia
     for elem in url_elems:
