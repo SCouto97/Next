@@ -97,10 +97,9 @@ def extension_converter(path):
         print('Renamed to: %s' % new)
 
 # função principal
-# TODO: Implementar função para adquirir os dados do sitemap lexml
 def main():
 
-    file_path = './t3/'
+    file_path = './test2/'
     directory = input("Select a directory to store the downloaded files:\n")
     if os.path.exists(file_path):
         for filename in glob.glob(os.path.join(file_path, '*.html')):
@@ -110,3 +109,4 @@ def main():
             local_file.close()
     else:
         print("Forneca um caminho valido!\n")
+main()
