@@ -3,9 +3,33 @@
 # @email: samuelcoouto@hotmail.com
 # @desc: Programa que realiza submissões automáticas dentro de um repositório
 #        institucional que utiliza DSpace.
-# @version: 0.4
+# @version: 0.5
 
 import bs4, requests, os, sys, glob, errno, mimetypes, re
+
+# Convenções nesse programa para comunicação com a api REST:
+# Por enquanto só criação para fazer os testes
+# Key#:                  Operação:
+#    1                    Criar uma comunidade
+#    2                    Criar uma sub-comunidade
+#    3                    Criar uma coleção
+#    4                    Criar um objeto(lei, jurisprudência)
+
+# Protótipo de um artigo do Dspace, utilizado posteriormente para requisições
+# com a api REST
+class DspaceObject(object):
+    def __init__(self, local, authority, name, date, obj_id, parent_id, parent_name):
+        self.local = local
+        self.authority = authority
+        self.name = name
+        self.obj_id = obj_id
+        self.parent_id = parent_id
+        self.parent_name = parent_name
+
+    def create_dictionary(self):
+        __dspace_dict = {'local' : self.local, 'authority' : self.authority,
+                        'title' : self.name, 'date' : self.date}
+        return __dspace_dict
 
 # função de parsing coleta atributos sobre os metadados e chama a função de baixar
 # as urls contidas nesses dados
@@ -86,6 +110,7 @@ def extension_converter_aux(filename, new_extension):
     l[len(l)-1] = new_extension
     filename = '.'.join(l)
     return filename
+
 # função para mudar extensões dentro de um diretório(usar quando tiver erros de extensão)
 def extension_converter(path):
     old = '*.pdf'
@@ -95,6 +120,53 @@ def extension_converter(path):
         print('Old file name: %s' % filename_new)
         os.rename(filename, filename_new)
         print('Renamed to: %s' % new)
+
+# função que faz o teste de submissão no repositório a partir da api REST
+def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
+    null = None
+    login = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+    server = 'http://dev.jusbot.com.br/rest'
+    r = requests.post(url='%s/login' % server, data=login)
+    con_type = {'content-type' : 'application/json'}
+    if(r.status_code == 200):
+        if(op == 1):
+            com_obj = {"id":dspace_obj.obj_id,"name":dspace_obj.name,"handle":"10766/10213",
+                       "type":"community","link":"/rest/communities/"+dspace_obj.obj_id,
+                       "expand":["parentCommunity","collections","subCommunities",
+                       "logo","all"],"logo":null,"parentCommunity":null,"copyrightText":"",
+                       "introductoryText":"","shortDescription":"",
+                       "sidebarText":"","countItems":3,"subcommunities":[],
+                       "collections":[]}
+            ccom = requests.post(url='%s/communities'%server, headers=con_type, data=com_obj)
+        elif(op == 2):
+            subcom_obj = {"id":dspace_obj.obj_id,"name":dspace_obj.name,"handle":"10766/10213",
+                       "type":"community","link":"/rest/communities/"+dspace_obj.obj_id,
+                       "expand":["parentCommunity","collections","subCommunities",
+                       "logo","all"],"logo":null,"parentCommunity":dspace_obj.parent_name,"copyrightText":"",
+                       "introductoryText":"","shortDescription":"",
+                       "sidebarText":"","countItems":3,"subcommunities":[],
+                       "collections":[]}
+            sccom = requests.post(url='%s/communities/%d/communities'%(server, dspace_obj.parent_id),
+                                  headers=con_type, data=subcom_obj)
+        elif(op == 3):
+            col_obj = {"id":dspace_obj.obj_id,"name":dspace_obj.name,"handle":"10766/10214",
+                    "type":"collection","link":"/rest/collections/"+dspace_obj.obj_id,
+                    "expand":["parentCommunityList","parentCommunity","items","license",
+                    "logo","all"],"logo":null,"parentCommunity":null,"parentCommunityList":[],
+                    "items":[],"license":null,"copyrightText":"","introductoryText":"",
+                    "shortDescription":"","sidebarText":"","numberItems":3}
+            ccol = requests.post(url='%s/communities/%d/collections'%(server, dspace_obj.parent_id),
+                                 headers=con_type, data=col_obj)
+        elif(op == 4):
+            new_obj = {"id":dspace_obj.obj_id,"name":"2015 Annual Report","handle":"123456789/13470",
+                    "type":"item","link":"/rest/items/"+dspace_obj.obj_id,"expand":["metadata",
+                    "parentCollection", "parentCollectionList","parentCommunityList","bitstreams","all"],
+                    "lastModified":" ","parentCollection":null, "parentCollectionList":null,
+                    "parentCommunityList":null,"bitstreams":null, "archived":"true","withdrawn":"false"}
+            cno = requests.post('%s/collection/%d/items'%(server, dspace_obj.parent_id),
+                                headers=con_type, data=new_obj)
+    else:
+        print('Could not authenticate')
 
 # função principal
 def main():
@@ -109,4 +181,3 @@ def main():
             local_file.close()
     else:
         print("Forneca um caminho valido!\n")
-main()
