@@ -5,7 +5,7 @@
 #        institucional que utiliza DSpace.
 # @version: 0.5
 
-import bs4, requests, os, sys, glob, errno, mimetypes, re
+import bs4, requests, os, sys, glob, errno,  re
 
 # Convenções nesse programa para comunicação com a api REST:
 # Por enquanto só criação para fazer os testes
@@ -41,14 +41,24 @@ class DspaceCollection(DspaceObject):
         self.parent_name = parent_name
 
 class DspaceItem(DspaceObject):
-    def __init__(self, obj_id, name, parent_id, parent_name, local, authority, date):
-        self.local = local
-        self.authority = authority
+    def __init__(self, obj_id, name, parent_id, parent_name):
         self.name = name
         self.obj_id = obj_id
         self.parent_id = parent_id
         self.parent_name = parent_name
-        self.date = date
+
+class DspaceBitstream(DspaceObject):
+    def __init__(self, name, extension, path):
+        self.name = name
+        self.extension = extension
+        self.path = path
+
+class DspaceMetadata(DspaceObject):
+    def __init__(self, obj_id, desc, local, authority):
+        self.obj_id = obj_id
+        self.desc = desc
+        self.local = local
+        self.authority = authority
 
 # função de parsing coleta atributos sobre os metadados e chama a função de baixar
 # as urls contidas nesses dados
@@ -141,7 +151,8 @@ def extension_converter(path):
         print('Renamed to: %s' % new)
 
 # função que faz o teste de submissão no repositório a partir da api REST
-def rest_test(op, dspace_obj):
+# @op indica o tipo de objeto do dspace a ser criado
+def rest_test(dspace_obj, op):
     null = None
     ses = requests.session()
     email = 'samuel.a.couto@gmail.com'
