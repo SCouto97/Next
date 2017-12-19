@@ -13,10 +13,12 @@ import bs4, requests, os, sys, glob, errno, mimetypes, re
 #    1                    Criar uma comunidade
 #    2                    Criar uma sub-comunidade
 #    3                    Criar uma coleção
-#    4                    Criar um objeto(lei, jurisprudência)
+#    4                    Criar um item(lei, jurisprudência)
+#    5                    Adicionar metadados ao item
+#    6                    Adicionar bitstreams ao item
 
-# Protótipo de um artigo do Dspace, utilizado posteriormente para requisições
-# com a api REST
+# Classe polimórfica para
+#
 class DspaceObject(object):
     def __init__(self, local, authority, name, date, obj_id, parent_id, parent_name):
         self.local = local
@@ -26,10 +28,27 @@ class DspaceObject(object):
         self.parent_id = parent_id
         self.parent_name = parent_name
 
-    def create_dictionary(self):
-        __dspace_dict = {'local' : self.local, 'authority' : self.authority,
-                        'title' : self.name, 'date' : self.date}
-        return __dspace_dict
+class DspaceCommunity(DspaceObject):
+    def __init__(self, obj_id, name):
+        self.obj_id = obj_id
+        self.name = name
+
+class DspaceCollection(DspaceObject):
+    def __init__(self, obj_id, name, parent_id, parent_name):
+        self.obj_id = obj_id
+        self.name = name
+        self.parent_id = parent_id
+        self.parent_name = parent_name
+
+class DspaceItem(DspaceObject):
+    def __init__(self, obj_id, name, parent_id, parent_name, local, authority, date):
+        self.local = local
+        self.authority = authority
+        self.name = name
+        self.obj_id = obj_id
+        self.parent_id = parent_id
+        self.parent_name = parent_name
+        self.date = date
 
 # função de parsing coleta atributos sobre os metadados e chama a função de baixar
 # as urls contidas nesses dados
@@ -122,7 +141,7 @@ def extension_converter(path):
         print('Renamed to: %s' % new)
 
 # função que faz o teste de submissão no repositório a partir da api REST
-def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
+def rest_test(op, dspace_obj):
     null = None
     ses = requests.session()
     email = 'samuel.a.couto@gmail.com'
@@ -131,16 +150,14 @@ def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
     link = 'http://dev.jusbot.com.br/rest'
     r = ses.post(url='%s/login' % link, data=login)
     sessionID = ses.cookies['JSESSIONID']
-    ses_dic = {'cookie' : sessionID}
-    debug = '\n\n sessionId = %s' % sessionID + '\n\n'
-    print(debug)
+    jses = 'JSESSIONID=%s' % sessionID
     con_type = {'content-type' : 'application/json'}
     if(r.status_code == 200):
-        if(op == 1):
+        if(op == 1): # Criar uma comunidade
             com_obj = {
-                       "id":dspace_obj.obj_id,
+                       "uuid":dspace_obj.obj_id,
                        "name":dspace_obj.name,
-                       "handle":"10766/10213",
+                       "handle":"123456789/10213",
                        "type":"community",
                        "link":"/rest/communities/"+dspace_obj.obj_id,
                        "expand":["parentCommunity","collections","subCommunities",
@@ -155,11 +172,11 @@ def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
                        "subcommunities":[],
                        "collections":[]
                       }
-            ccom = ses.post(url='%s/communities'%server, headers=con_type,
-                            json=com_obj, cookies=ses_dic)
-        elif(op == 2):
+            ccom = ses.post(url='%s/communities' % link, headers=con_type,
+                            json=com_obj)
+        elif(op == 2): # Criar uma subcomunidade
             subcom_obj = {
-                          "id":dspace_obj.obj_id,
+                          "uuid":dspace_obj.obj_id,
                           "name":dspace_obj.name,
                           "handle":"10766/10213",
                           "type":"community",
@@ -175,11 +192,11 @@ def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
                           "countItems":3,"subcommunities":[],
                           "collections":[]
                          }
-            sccom = ses.post(url='%s/communities/%d/communities'%(server, dspace_obj.parent_id),
-                                  headers=con_type, json=subcom_obj, cookies=ses_dic)
-        elif(op == 3):
+            sccom = ses.post(url='%s/communities/%d/communities'%(link, dspace_obj.parent_id),
+                                  headers=con_type, json=subcom_obj)
+        elif(op == 3): # Criar uma coleção
             col_obj = {
-                       "id":dspace_obj.obj_id,
+                       "uuid":dspace_obj.obj_id,
                        "name":dspace_obj.name,
                        "handle":"10766/10214",
                        "type":"collection",
@@ -196,11 +213,11 @@ def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
                        "sidebarText":"",
                        "numberItems":3
                       }
-            ccol = ses.post(url='%s/communities/%d/collections'%(server, dspace_obj.parent_id),
-                                 headers=con_type, json=col_obj, cookies=ses_dic)
-        elif(op == 4):
+            ccol = ses.post(url='%s/communities/%d/collections'%(link, dspace_obj.parent_id),
+                                 headers=con_type, json=col_obj)
+        elif(op == 4): # Criar um item
             new_obj = {
-                       "id":dspace_obj.obj_id,
+                       "uuid":dspace_obj.obj_id,
                        "name":"2015 Annual Report",
                        "handle":"123456789/13470",
                        "type":"item",
@@ -215,8 +232,36 @@ def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
                        "archived":"true",
                        "withdrawn":"false"
                       }
-            cno = ses.post('%s/collection/%d/items'%(server, dspace_obj.parent_id),
-                            headers=con_type, json=new_obj, cookies=ses_dic)
+            cno = ses.post('%s/collection/%d/items'%(link, dspace_obj.parent_id),
+                            headers=con_type, json=new_obj)
+        elif(op == 5): # Adicionar metadados ao item
+            new_metadata = {
+                        #    "key": dspace_obj.desc,
+                            "value":"This is the description abstract",
+                            "language": null
+                           }
+
+        elif(op == 6):
+            new_bitstream = {
+                             "uuid":dspace_obj.obj_id,
+                             "name":dspace_obj.name,
+                             "handle":null,
+                             "type":"bitstream",
+                             "link":"/rest/bitstreams/%s"%dspace_obj.obj_id,
+                             "expand":["parent","policies","all"],
+                             "bundleName":"ORIGINAL",
+                             "description":"",
+                             "format":"Adobe PDF",
+                             "mimeType":"application/pdf",
+                             "sizeBytes":129112,
+                             "parentObject":null,
+                             "retrieveLink":"/bitstreams/47166/retrieve",
+                             "checkSum":{"value":"62778292a3a6dccbe2662a2bfca3b86e",
+                                         "checkSumAlgorithm":"MD5"},
+                             "sequenceId":1,
+                             "policies":null
+                            }
+
     else:
         print('Could not authenticate')
 
