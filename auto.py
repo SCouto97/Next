@@ -124,47 +124,99 @@ def extension_converter(path):
 # função que faz o teste de submissão no repositório a partir da api REST
 def rest_test(op, dspace_obj, com_name, subcom_name, col_name):
     null = None
-    login = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
-    server = 'http://dev.jusbot.com.br/rest'
-    r = requests.post(url='%s/login' % server, data=login)
+    ses = requests.session()
+    email = 'samuel.a.couto@gmail.com'
+    password = 'Senha123'
+    login = {'email' : email, 'password' : password}
+    link = 'http://dev.jusbot.com.br/rest'
+    r = ses.post(url='%s/login' % link, data=login)
+    sessionID = ses.cookies['JSESSIONID']
+    ses_dic = {'cookie' : sessionID}
+    debug = '\n\n sessionId = %s' % sessionID + '\n\n'
+    print(debug)
     con_type = {'content-type' : 'application/json'}
     if(r.status_code == 200):
         if(op == 1):
-            com_obj = {"id":dspace_obj.obj_id,"name":dspace_obj.name,"handle":"10766/10213",
-                       "type":"community","link":"/rest/communities/"+dspace_obj.obj_id,
+            com_obj = {
+                       "id":dspace_obj.obj_id,
+                       "name":dspace_obj.name,
+                       "handle":"10766/10213",
+                       "type":"community",
+                       "link":"/rest/communities/"+dspace_obj.obj_id,
                        "expand":["parentCommunity","collections","subCommunities",
-                       "logo","all"],"logo":null,"parentCommunity":null,"copyrightText":"",
-                       "introductoryText":"","shortDescription":"",
-                       "sidebarText":"","countItems":3,"subcommunities":[],
-                       "collections":[]}
-            ccom = requests.post(url='%s/communities'%server, headers=con_type, data=com_obj)
+                                 "logo","all"],
+                       "logo":null,
+                       "parentCommunity":null,
+                       "copyrightText":"",
+                       "introductoryText":"",
+                       "shortDescription":"",
+                       "sidebarText":"",
+                       "countItems":3,
+                       "subcommunities":[],
+                       "collections":[]
+                      }
+            ccom = ses.post(url='%s/communities'%server, headers=con_type,
+                            json=com_obj, cookies=ses_dic)
         elif(op == 2):
-            subcom_obj = {"id":dspace_obj.obj_id,"name":dspace_obj.name,"handle":"10766/10213",
-                       "type":"community","link":"/rest/communities/"+dspace_obj.obj_id,
-                       "expand":["parentCommunity","collections","subCommunities",
-                       "logo","all"],"logo":null,"parentCommunity":dspace_obj.parent_name,"copyrightText":"",
-                       "introductoryText":"","shortDescription":"",
-                       "sidebarText":"","countItems":3,"subcommunities":[],
-                       "collections":[]}
-            sccom = requests.post(url='%s/communities/%d/communities'%(server, dspace_obj.parent_id),
-                                  headers=con_type, data=subcom_obj)
+            subcom_obj = {
+                          "id":dspace_obj.obj_id,
+                          "name":dspace_obj.name,
+                          "handle":"10766/10213",
+                          "type":"community",
+                          "link":"/rest/communities/"+dspace_obj.obj_id,
+                          "expand":["parentCommunity","collections","subCommunities",
+                                    "logo","all"],
+                          "logo":null,
+                          "parentCommunity":dspace_obj.parent_name,
+                          "copyrightText":"",
+                          "introductoryText":"",
+                          "shortDescription":"",
+                          "sidebarText":"",
+                          "countItems":3,"subcommunities":[],
+                          "collections":[]
+                         }
+            sccom = ses.post(url='%s/communities/%d/communities'%(server, dspace_obj.parent_id),
+                                  headers=con_type, json=subcom_obj, cookies=ses_dic)
         elif(op == 3):
-            col_obj = {"id":dspace_obj.obj_id,"name":dspace_obj.name,"handle":"10766/10214",
-                    "type":"collection","link":"/rest/collections/"+dspace_obj.obj_id,
-                    "expand":["parentCommunityList","parentCommunity","items","license",
-                    "logo","all"],"logo":null,"parentCommunity":null,"parentCommunityList":[],
-                    "items":[],"license":null,"copyrightText":"","introductoryText":"",
-                    "shortDescription":"","sidebarText":"","numberItems":3}
-            ccol = requests.post(url='%s/communities/%d/collections'%(server, dspace_obj.parent_id),
-                                 headers=con_type, data=col_obj)
+            col_obj = {
+                       "id":dspace_obj.obj_id,
+                       "name":dspace_obj.name,
+                       "handle":"10766/10214",
+                       "type":"collection",
+                       "link":"/rest/collections/"+dspace_obj.obj_id,
+                       "expand":["parentCommunityList","parentCommunity","items","license",
+                                 "logo","all"],
+                       "logo":null,
+                       "parentCommunity":null,
+                       "parentCommunityList":[],
+                       "items":[],"license":null,
+                       "copyrightText":"",
+                       "introductoryText":"",
+                       "shortDescription":"",
+                       "sidebarText":"",
+                       "numberItems":3
+                      }
+            ccol = ses.post(url='%s/communities/%d/collections'%(server, dspace_obj.parent_id),
+                                 headers=con_type, json=col_obj, cookies=ses_dic)
         elif(op == 4):
-            new_obj = {"id":dspace_obj.obj_id,"name":"2015 Annual Report","handle":"123456789/13470",
-                    "type":"item","link":"/rest/items/"+dspace_obj.obj_id,"expand":["metadata",
-                    "parentCollection", "parentCollectionList","parentCommunityList","bitstreams","all"],
-                    "lastModified":" ","parentCollection":null, "parentCollectionList":null,
-                    "parentCommunityList":null,"bitstreams":null, "archived":"true","withdrawn":"false"}
-            cno = requests.post('%s/collection/%d/items'%(server, dspace_obj.parent_id),
-                                headers=con_type, data=new_obj)
+            new_obj = {
+                       "id":dspace_obj.obj_id,
+                       "name":"2015 Annual Report",
+                       "handle":"123456789/13470",
+                       "type":"item",
+                       "link":"/rest/items/"+dspace_obj.obj_id,
+                       "expand":["metadata", "parentCollection",
+                                 "parentCollectionList","parentCommunityList","bitstreams","all"],
+                       "lastModified":" ",
+                       "parentCollection":null,
+                       "parentCollectionList":null,
+                       "parentCommunityList":null,
+                       "bitstreams":null,
+                       "archived":"true",
+                       "withdrawn":"false"
+                      }
+            cno = ses.post('%s/collection/%d/items'%(server, dspace_obj.parent_id),
+                            headers=con_type, json=new_obj, cookies=ses_dic)
     else:
         print('Could not authenticate')
 
