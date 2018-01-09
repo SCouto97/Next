@@ -5,7 +5,7 @@
 #        institucional que utiliza DSpace.
 # @version: 0.5
 
-import bs4, requests, os, sys, glob, errno,  re
+import bs4, requests, os, sys, glob, errno, re, hashlib
 
 # Convenções nesse programa para comunicação com a api REST:
 # Por enquanto só criação para fazer os testes
@@ -20,13 +20,12 @@ import bs4, requests, os, sys, glob, errno,  re
 # Classe polimórfica para
 #
 class DspaceObject(object):
-    def __init__(self, local, authority, name, date, obj_id, parent_id, parent_name):
+    def __init__(self, local, authority, name, date, obj_id, parent_id):
         self.local = local
         self.authority = authority
         self.name = name
         self.obj_id = obj_id
         self.parent_id = parent_id
-        self.parent_name = parent_name
 
 class DspaceCommunity(DspaceObject):
     def __init__(self, obj_id, name):
@@ -34,24 +33,31 @@ class DspaceCommunity(DspaceObject):
         self.name = name
 
 class DspaceCollection(DspaceObject):
-    def __init__(self, obj_id, name, parent_id, parent_name):
+    def __init__(self, obj_id, name, parent_id):
         self.obj_id = obj_id
         self.name = name
         self.parent_id = parent_id
-        self.parent_name = parent_name
 
 class DspaceItem(DspaceObject):
-    def __init__(self, obj_id, name, parent_id, parent_name):
+    def __init__(self, obj_id, name, parent_id):
         self.name = name
         self.obj_id = obj_id
         self.parent_id = parent_id
-        self.parent_name = parent_name
 
+# @item_id inserido por conta da necessidade de informar o item a inserir o stream
 class DspaceBitstream(DspaceObject):
-    def __init__(self, name, extension, path):
+    def __init__(self, name, extension, path, item_id):
         self.name = name
         self.extension = extension
         self.path = path
+        self.item_id = item_id
+
+    def bitstream_checksum(self):
+        checksum_md5 = hashlib.md5()
+        with open(self.path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                checksum_md5.update(chunk)
+        return checksum_md5.hexdigest()
 
 class DspaceMetadata(DspaceObject):
     def __init__(self, obj_id, desc, local, authority):
@@ -189,7 +195,7 @@ def rest_test(dspace_obj, op):
             subcom_obj = {
                           "uuid":dspace_obj.obj_id,
                           "name":dspace_obj.name,
-                          "handle":"10766/10213",
+                          "handle":"123456789/10", # Número arbitrário
                           "type":"community",
                           "link":"/rest/communities/"+dspace_obj.obj_id,
                           "expand":["parentCommunity","collections","subCommunities",
@@ -209,7 +215,7 @@ def rest_test(dspace_obj, op):
             col_obj = {
                        "uuid":dspace_obj.obj_id,
                        "name":dspace_obj.name,
-                       "handle":"10766/10214",
+                       "handle":"123456789/10214",
                        "type":"collection",
                        "link":"/rest/collections/"+dspace_obj.obj_id,
                        "expand":["parentCommunityList","parentCommunity","items","license",
@@ -229,7 +235,7 @@ def rest_test(dspace_obj, op):
         elif(op == 4): # Criar um item
             new_obj = {
                        "uuid":dspace_obj.obj_id,
-                       "name":"2015 Annual Report",
+                       "name":dspace_obj.name,
                        "handle":"123456789/13470",
                        "type":"item",
                        "link":"/rest/items/"+dspace_obj.obj_id,
@@ -243,14 +249,24 @@ def rest_test(dspace_obj, op):
                        "archived":"true",
                        "withdrawn":"false"
                       }
-            cno = ses.post('%s/collection/%d/items'%(link, dspace_obj.parent_id),
+            cno = ses.post(url='%s/collection/%d/items'%(link, dspace_obj.parent_id),
                             headers=con_type, json=new_obj)
+            id_soup = bs4.BeautifulSoup(cno.text)
+            my_id = id_soup.find('uuid').text
+            dspace_obj.obj_id = my_id
+            rest_test(dspace_obj, 5)
+
         elif(op == 5): # Adicionar metadados ao item
+                       # Editar essa seção para incluir metadados no futuro
             new_metadata = {
-                        #    "key": dspace_obj.desc,
-                            "value":"This is the description abstract",
+                            "key": "dc.title",
+                            "value": dspace_obj.name,
                             "language": null
                            }
+            cnm = ses.put(url='%s/items/%s/metadata'%(link, dspace_obj.obj_id),
+                           headers=ctype, json=[new_metadata])
+            if(cnm.status_code != 200):
+                print('Erro ao incluir metadados')
 
         elif(op == 6):
             new_bitstream = {
@@ -275,6 +291,7 @@ def rest_test(dspace_obj, op):
 
     else:
         print('Could not authenticate')
+    return
 
 # função principal
 def main():
@@ -289,3 +306,5 @@ def main():
             local_file.close()
     else:
         print("Forneca um caminho valido!\n")
+
+print(checkSum('./test2/file1.html'))
