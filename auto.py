@@ -260,12 +260,12 @@ def rest_aux(dspace_obj, op):
                        "archived":"true",
                        "withdrawn":"false"
                       }
-            cno = ses.post(url='%s/collection/%d/items'%(link, dspace_obj.parent_id),
+            cno = ses.post(url='%s/collection/%s/items'%(link, dspace_obj.parent_id),
                             headers=con_type, json=new_obj)
-            id_soup = bs4.BeautifulSoup(cno.text)
+            id_soup = bs4.BeautifulSoup(cno.text, 'lxml')
             my_id = id_soup.find('uuid').text
             dspace_obj.obj_id = my_id
-            rest_test(dspace_obj, 5)
+            rest_aux(dspace_obj, 5)
 
         elif(op == 5): # Adicionar metadados ao item
                        # Editar essa seção para incluir metadados no futuro
@@ -319,9 +319,10 @@ def DspaceRetrievebyName(name, obj_type):
     else:
         print('Não consegui achar tal objeto')
 
+# Versão de teste das funcionalidades
 def DspaceRestUploader():
     print('Digite o tipo de objeto a ser criado:\n')
-    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream\n')
+    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream')
     opcao = input('')
     num_op = int(opcao)
     if(num_op == 1):
@@ -344,7 +345,7 @@ def DspaceRestUploader():
         iden = input('Digite o identificador do item\n')
         nome = input('Digite o nome do item\n')
         parent_name = input('Digite o nome da coleção o qual esse item pertence\n')
-        parent_id = DspaceRetrievebyName(parent_name, items)
+        parent_id = DspaceRetrievebyName(parent_name, 'collections')
         dspace = DspaceItem(iden, nome, parent_id)
     elif(num_op == 5):
         name = input('Digite o nome do bitstream\n')
@@ -375,4 +376,4 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-DspaceRestUploader()
+#DspaceRestUploader()
