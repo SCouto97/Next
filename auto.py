@@ -32,6 +32,12 @@ class DspaceCommunity(DspaceObject):
         self.obj_id = obj_id
         self.name = name
 
+class DspaceSubcommunity(DspaceObject):
+    def __init__(self, obj_id, name, parent_id):
+        self.obj_id = obj_id
+        self.name = name
+        self.parent_id = parent_id
+
 class DspaceCollection(DspaceObject):
     def __init__(self, obj_id, name, parent_id):
         self.obj_id = obj_id
@@ -53,15 +59,12 @@ class DspaceBitstream(DspaceObject):
         self.item_id = item_id
 
     def bitstream_checksum(self):
-        checksum_md5 = hashlib.md5()
-        with open(self.path, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                checksum_md5.update(chunk)
-        return checksum_md5.hexdigest()
+        return checkSum(self.path)
+
 
 class DspaceMetadata(DspaceObject):
-    def __init__(self, obj_id, desc, local, authority):
-        self.obj_id = obj_id
+    def __init__(self, title, desc, local, authority):
+        self.title
         self.desc = desc
         self.local = local
         self.authority = authority
@@ -123,6 +126,14 @@ def download_module(my_url, title, downl_path, ext):
     with open('%s/%s.%s' % (directory, local_title, ext), 'wb') as f:
         f.write(my_request.content)
 
+def checkSum(filename):
+    checksum_md5 = hashlib.md5()
+    with open(filename, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            checksum_md5.update(chunk)
+    return checksum_md5.hexdigest()
+
+
 # função que obtém os arquivos de metadados dos sites do lexml
 def crawl_sitemap():
     url = input('escreva o sitemap que deseja baixar:\n');
@@ -158,7 +169,7 @@ def extension_converter(path):
 
 # função que faz o teste de submissão no repositório a partir da api REST
 # @op indica o tipo de objeto do dspace a ser criado
-def rest_test(dspace_obj, op):
+def rest_aux(dspace_obj, op):
     null = None
     ses = requests.session()
     email = 'samuel.a.couto@gmail.com'
@@ -280,10 +291,10 @@ def rest_test(dspace_obj, op):
                              "description":"",
                              "format":"Adobe PDF",
                              "mimeType":"application/pdf",
-                             "sizeBytes":129112,
+                             "sizeBytes": os.path.getsize(dspace_obj.path),
                              "parentObject":null,
                              "retrieveLink":"/bitstreams/47166/retrieve",
-                             "checkSum":{"value":"62778292a3a6dccbe2662a2bfca3b86e",
+                             "checkSum":{"value": dspace_obj.bitstream_checksum(),
                                          "checkSumAlgorithm":"MD5"},
                              "sequenceId":1,
                              "policies":null
@@ -292,6 +303,45 @@ def rest_test(dspace_obj, op):
     else:
         print('Could not authenticate')
     return
+
+def DspaceRestUploader():
+    print('Digite o tipo de objeto a ser criado:\n')
+    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream\n')
+    opcao = input('')
+    num_op = int(opcao)
+    if(num_op == 1):
+        iden = input('Digite o identificador da comunidade\n')
+        nome = input('Digite o nome da comunidade\n')
+        dspace = DspaceCommunity(iden, nome)
+    elif(num_op == 2):
+        iden = input('Digite o identificador da subcomunidade\n')
+        nome = input('Digite o nome da subcomunidade\n')
+        parent_id = input('Digite o id da comunidade pai dessa subcomunidade\n')
+        dspace = DspaceSubcommunity(iden, nome, parent_id)
+    elif(num_op == 3):
+        iden = input('Digite o identificador da coleção\n')
+        nome = input('Digite o nome da coleção\n')
+        parent_id = input('Digite o id da comunidade pai dessa coleção\n')
+        dspace = DspaceCollection(iden, nome, parent_id)
+    elif(num_op == 4):
+        iden = input('Digite o identificador do item\n')
+        nome = input('Digite o nome do item\n')
+        parent_id = input('Digite o id da coleção o qual esse item pertence\n')
+        dspace = DspaceItem(iden, nome, parent_id)
+    elif(num_op == 5):
+        name = input('Digite o nome do bitstream\n')
+        ext = input('Digite a extensão do bitstream\n')
+        path = input('Digite o caminho para o bitstream\n')
+        item_id = input('Digite o identificador do bitstream\n')
+        dspace = DspaceBitstream(name, ext, path, item_id)
+    elif(num_op == 6):
+        title = input('Digite o titulo para o item\n')
+        desc = input('Digite o abstract do artigo\n')
+        local = input('Digite o local\n')
+        authority = input('Digite a autoridade\n')
+        dspace = DspaceMetadata(title, desc, local, authority)
+
+    rest_aux(dspace, num_op)
 
 # função principal
 def main():
@@ -307,4 +357,4 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-print(checkSum('./test2/file1.html'))
+DspaceRestUploader()
