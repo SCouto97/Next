@@ -241,7 +241,7 @@ def rest_aux(dspace_obj, op):
                        "sidebarText":"",
                        "numberItems":3
                       }
-            ccol = ses.post(url='%s/communities/%d/collections'%(link, dspace_obj.parent_id),
+            ccol = ses.post(url='%s/communities/%s/collections'%(link, dspace_obj.parent_id),
                                  headers=con_type, json=col_obj)
         elif(op == 4): # Criar um item
             new_obj = {
@@ -304,6 +304,21 @@ def rest_aux(dspace_obj, op):
         print('Could not authenticate')
     return
 
+def DspaceRetrievebyName(name, obj_type):
+    se = requests.session()
+    jus_url = 'http://dev.jusbot.com.br/rest'
+    object_json = se.get(url='%s/%s'%(jus_url, obj_type)).json()
+    uuid = None
+    if(object_json != []):
+        for obj in object_json:
+            if(obj['name'] == name):
+                uuid = obj['uuid']
+                break
+    if(uuid):
+        return uuid
+    else:
+        print('Não consegui achar tal objeto')
+
 def DspaceRestUploader():
     print('Digite o tipo de objeto a ser criado:\n')
     print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream\n')
@@ -316,17 +331,20 @@ def DspaceRestUploader():
     elif(num_op == 2):
         iden = input('Digite o identificador da subcomunidade\n')
         nome = input('Digite o nome da subcomunidade\n')
-        parent_id = input('Digite o id da comunidade pai dessa subcomunidade\n')
+        parent_name = input('Digite o nome da comunidade pai dessa subcomunidade\n')
+        parent_id = DspaceRetrievebyName(parent_name, 'communities')
         dspace = DspaceSubcommunity(iden, nome, parent_id)
     elif(num_op == 3):
         iden = input('Digite o identificador da coleção\n')
         nome = input('Digite o nome da coleção\n')
-        parent_id = input('Digite o id da comunidade pai dessa coleção\n')
+        parent_name = input('Digite o nome da comunidade pai dessa coleção\n')
+        parent_id = DspaceRetrievebyName(parent_name, 'communities')
         dspace = DspaceCollection(iden, nome, parent_id)
     elif(num_op == 4):
         iden = input('Digite o identificador do item\n')
         nome = input('Digite o nome do item\n')
-        parent_id = input('Digite o id da coleção o qual esse item pertence\n')
+        parent_name = input('Digite o nome da coleção o qual esse item pertence\n')
+        parent_id = DspaceRetrievebyName(parent_name, items)
         dspace = DspaceItem(iden, nome, parent_id)
     elif(num_op == 5):
         name = input('Digite o nome do bitstream\n')
