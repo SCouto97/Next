@@ -260,7 +260,7 @@ def rest_aux(dspace_obj, op):
                        "archived":"true",
                        "withdrawn":"false"
                       }
-            cno = ses.post(url='%s/collection/%s/items'%(link, dspace_obj.parent_id),
+            cno = ses.post(url='%s/collections/%s/items'%(link, dspace_obj.parent_id),
                             headers=con_type, json=new_obj)
             id_soup = bs4.BeautifulSoup(cno.text, 'lxml')
             my_id = id_soup.find('uuid').text
@@ -269,13 +269,13 @@ def rest_aux(dspace_obj, op):
 
         elif(op == 5): # Adicionar metadados ao item
                        # Editar essa seção para incluir metadados no futuro
-            new_metadata = {
+            new_metadata = [{
                             "key": "dc.title",
                             "value": dspace_obj.name,
                             "language": null
-                           }
+                           }]
             cnm = ses.put(url='%s/items/%s/metadata'%(link, dspace_obj.obj_id),
-                           headers=ctype, json=[new_metadata])
+                           headers=con_type, json=new_metadata)
             if(cnm.status_code != 200):
                 print('Erro ao incluir metadados')
 
@@ -318,13 +318,48 @@ def DspaceRetrievebyName(name, obj_type):
         return uuid
     else:
         print('Não consegui achar tal objeto')
+    return
+
+def DspaceRestRemoval():
+    login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+    url = 'http://dev.jusbot.com.br/rest'
+    delete_session = requests.session()
+    login = requests.post(url='%s/login'%url, data=login_info)
+    print('Digite o tipo de objeto que deseja remover:')
+    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Bitstream\n6. Retornar')
+    num_op = int(input('>> '))
+    if(num_op != 6):
+        print('Digite o nome do objeto:')
+        nome = input('>> ')
+    if(num_op == 1):
+        uuid = DspaceRetrievebyName(nome, 'communities')
+        if(uuid):
+            delete_session.delete(url='%s/communities/%s' % (url, uuid))
+            print('Deleting: %s/communities/%s' % (url, uuid))
+    if(num_op == 2):
+        uuid = DsapceRetrievebyName(nome, 'communities')
+        if(uuid):
+            delete_session.delete(url='%s/communities/%s' % (url, uuid))
+    if(num_op == 3):
+        uuid = DspaceRetrievebyName(nome, 'collections')
+        if(uuid):
+            delete_session.delete(url='%s/collections/%s' % (url, uuid))
+    if(num_op == 4):
+        uuid = DspaceRetrievebyName(nome, 'items')
+        if(uuid):
+            delete_session.delete(url='%s/collections/%s' % (url, uuid))
+    if(num_op == 5):
+        uuid = DspaceRetrievebyName(nome, 'bitstreams')
+        if(uuid):
+            delete_session.delete(url='%s/collections/%s' % (url, uuid))
+    if(num_op == 6):
+        os.system('exit')
 
 # Versão de teste das funcionalidades
 def DspaceRestUploader():
     print('Digite o tipo de objeto a ser criado:\n')
-    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream')
-    opcao = input('')
-    num_op = int(opcao)
+    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream\n')
+    num_op = int(input('>> '))
     if(num_op == 1):
         iden = input('Digite o identificador da comunidade\n')
         nome = input('Digite o nome da comunidade\n')
@@ -361,6 +396,7 @@ def DspaceRestUploader():
         dspace = DspaceMetadata(title, desc, local, authority)
 
     rest_aux(dspace, num_op)
+    return
 
 # função principal
 def main():
@@ -376,4 +412,4 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-#DspaceRestUploader()
+DspaceRestRemoval()
