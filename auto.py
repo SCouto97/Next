@@ -280,18 +280,25 @@ def rest_aux(dspace_obj, op):
                 print('Erro ao incluir metadados')
 
         elif(op == 6):
+            # condicional que faz a diferenciação dos formatos dos arquivos
+            if(dspace_obj.extension == 'html'):
+                item_format = "HTML"
+                mimeType = "text/HTML"
+            else:
+                item_format = "Adobe PDF"
+                mimeType = "application/pdf"
             new_bitstream = {
-                             "uuid":dspace_obj.obj_id,
+                             "uuid":123,
                              "name":dspace_obj.name,
-                             "handle":null,
+                             "handle":'123456789/0',
                              "type":"bitstream",
-                             "link":"/rest/bitstreams/%s"%dspace_obj.obj_id,
+                             "link":"/rest/bitstreams/123",
                              "expand":["parent","policies","all"],
                              "bundleName":"ORIGINAL",
                              "description":"",
-                             "format":"Adobe PDF",
-                             "mimeType":"application/pdf",
-                             "sizeBytes": os.path.getsize(dspace_obj.path),
+                             "format":item_format,
+                             "mimeType":mimeType,
+                             "sizeBytes": int(os.path.getsize(dspace_obj.path)),
                              "parentObject":null,
                              "retrieveLink":"/bitstreams/47166/retrieve",
                              "checkSum":{"value": dspace_obj.bitstream_checksum(),
@@ -299,7 +306,11 @@ def rest_aux(dspace_obj, op):
                              "sequenceId":1,
                              "policies":null
                             }
-
+#            cnm = ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, dspace_obj.item_id, dspace_obj.name,
+                                                                                #        dspace_obj.extension),headers=con_type, json=new_bitstream)
+            assigned_uuid = DspaceRetrievebyName(dspace_obj.name+dspace_obj.extension, 'bitstreams')
+            print(assigned_uuid)
+            update_bits = ses.put(url='%s/bitstreams/%s/data'%(link, assigned_uuid), data=dspace_obj.path)
     else:
         print('Could not authenticate')
     return
@@ -412,4 +423,5 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-DspaceRestRemoval()
+mock_object = DspaceBitstream(name='Acórdão São Paulo', extension='pdf', path='./down2/AC990QOSPSÃOPAULO.pdf', item_id='b6c206c0-d9c7-4c07-89e6-3fc22dc73891')
+rest_aux(mock_object, 6)
