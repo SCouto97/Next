@@ -157,6 +157,10 @@ def crawl_sitemap():
         download_module(my_url=link, downl_path='sitemap_data', title=nome, ext=extension)
     print('Number of pages crawled: %d\n' % count)
 
+def getExtension(filename):
+    parts = filename.split('.')
+    return parts[-1]
+
 # função criada para tentar corrigir alguns erros de extensão
 # feita para ser usada em loop dentro de um diretório
 def extension_converter_aux(filename, new_extension):
@@ -180,7 +184,6 @@ def DspaceRetrievebyName(name, obj_type):
     se = requests.session()
     jus_url = 'http://dev.jusbot.com.br/rest'
     object_json = se.get(url='%s/%s'%(jus_url, obj_type)).json()
-    uuid = None
     if(object_json != []):
         for obj in object_json:
             if(obj['name'] == name):
@@ -190,7 +193,7 @@ def DspaceRetrievebyName(name, obj_type):
         return uuid
     else:
         print('Não consegui achar tal objeto')
-    return
+        return None
 
 def DspaceRestRemoval():
     login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
@@ -413,47 +416,65 @@ def DspaceItemCreator(name, com_name, col_name):
         return
     else:
         print('Não existe comunidade nomeada {name}'.format(name=com_name))
-'''
-            if(dspace_obj.extension == 'html'):
-                item_format = "HTML"
-                mimeType = "text/HTML"
-            else:
-                item_format = "Adobe PDF"
-                mimeType = "application/pdf"
-            new_bitstream = {
-                             "uuid":123,
-                             "name":dspace_obj.name,
-                             "handle":'123456789/0',
-                             "type":"bitstream",
-                             "link":"/rest/bitstreams/123",
-                             "expand":["parent","policies","all"],
-                             "bundleName":"ORIGINAL",
-                             "description":"",
-                             "format":item_format,
-                             "mimeType":mimeType,
-                             "sizeBytes": int(os.path.getsize(dspace_obj.path)),
-                             "parentObject":null,
-                             "retrieveLink":"/bitstreams/47166/retrieve",
-                             "checkSum":{"value": dspace_obj.bitstream_checksum(),
-                                         "checkSumAlgorithm":"MD5"},
-                             "sequenceId":1,
-                             "policies":null
-                            }
-            filename = {dspace_obj.name : open(dspace_obj.path, 'rb')}
-            cnm = ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, dspace_obj.item_id, dspace_obj.name,
-                                                                                            dspace_obj.extension),headers=con_type,
-                                                                                            json=new_bitstream, files=filename)
 
- Item existe dentro da coleção?
- Coleção existe dentro da comunidade?
-
-'''
 def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
     bit_ses = requests.session()
     link = 'http://dev.jusbot.com.br/rest'
     com_id = DspaceRetrievebyName(com_name, 'communities')
-
-
+    if(com_id):
+        col_id = DspaceRetrievebyName(col_name, 'communities/%s/collections'%com_id)
+        if(col_id):
+            item_id = DspaceRetrievebyName(item_name, 'collections/%s/items'%col_id)
+            if(item_id):
+                found = False
+                bitstream_list = bit_ses.get('%s/items/%s/bitstreams'%(link, item_id)).json()
+                for bit in bitstream_list:
+                    if(bit['name' == name]):
+                        print('O item {name1} já possui um bitstream com nome {name2}'.format(name1=item_name, name2=name))
+                        found = True
+                        break
+                    if(not found):
+                        login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+                        con_type = {'content-type' : 'application/json'}
+                        extension = getExtension(path_to_file)
+                        if(extension == 'html'):
+                            item_format = "HTML"
+                            mimeType = "text/HTML"
+                        else:
+                            item_format = "Adobe PDF"
+                            mimeType = "application/pdf"
+                            new_bitstream = {
+                                         "uuid":123,
+                                         "name":name,
+                                         "handle":'123456789/0',
+                                         "type":"bitstream",
+                                         "link":"/rest/bitstreams/123",
+                                         "expand":["parent","policies","all"],
+                                         "bundleName":"ORIGINAL",
+                                         "description":"",
+                                         "format":item_format,
+                                         "mimeType":mimeType,
+                                         "sizeBytes": int(os.path.getsize(path_to_file)),
+                                         "parentObject":null,
+                                         "retrieveLink":"/bitstreams/47166/retrieve",
+                                         "checkSum":{"value": checkSum(path_to_file),
+                                                     "checkSumAlgorithm":"MD5"},
+                                         "sequenceId":1,
+                                         "policies":null
+                                        }
+                            filename = {name : open(path_to_file, 'rb')}
+                            cnm = bit_ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, item_id, name, extension),
+                                                                                          headers=con_type, json=new_bitstream, files=filename)
+                    else:
+                        print('Não consegui')
+                        return
+            else:
+                print('Não consegui achar o item {name}'.format(name=item_name))
+        else:
+            print('Não consegui achar a coleção {name}'.format(name=col_name))
+    else:
+        print('Não consegui achar a comunidade {name}'.format(name=com_name))
+        return
 # função principal
 def main():
     file_path = './test2/'
@@ -467,4 +488,4 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-DspaceItemCreator('TESTE', 'STM','Leis')
+DspaceUploadBitstream('TEST BIT', './down2/AC990QOSPSÃOPAULO.pdf', 'STM', 'Leis', 'TESTE')
