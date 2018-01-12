@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# #!/usr/bin/env/python3.5
 # @author: Samuel Andrade do Couto
 # @email: samuelcoouto@hotmail.com
 # @desc: Programa que realiza submissões automáticas dentro de um repositório
@@ -175,92 +176,6 @@ def extension_converter(path):
         os.rename(filename, filename_new)
         print('Renamed to: %s' % new)
 
-# função que faz o teste de submissão no repositório a partir da api REST
-# @op indica o tipo de objeto do dspace a ser criado
-def rest_aux(dspace_obj, op):
-    null = None
-    ses = requests.session()
-    email = 'samuel.a.couto@gmail.com'
-    password = 'Senha123'
-    login = {'email' : email, 'password' : password}
-    link = 'http://dev.jusbot.com.br/rest'
-    r = ses.post(url='%s/login' % link, data=login)
-    sessionID = ses.cookies['JSESSIONID']
-    jses = 'JSESSIONID=%s' % sessionID
-    con_type = {'content-type' : 'application/json'}
-    if(r.status_code == 200):
-        elif(op == 1): # Criar um item
-            new_obj = {
-                       "uuid":dspace_obj.obj_id,
-                       "name":dspace_obj.name,
-                       "handle":"123456789/13470",
-                       "type":"item",
-                       "link":"/rest/items/"+dspace_obj.obj_id,
-                       "expand":["metadata", "parentCollection",
-                                 "parentCollectionList","parentCommunityList","bitstreams","all"],
-                       "lastModified":" ",
-                       "parentCollection":null,
-                       "parentCollectionList":null,
-                       "parentCommunityList":null,
-                       "bitstreams":null,
-                       "archived":"true",
-                       "withdrawn":"false"
-                      }
-            cno = ses.post(url='%s/collections/%s/items'%(link, dspace_obj.parent_id),
-                            headers=con_type, json=new_obj)
-            id_soup = bs4.BeautifulSoup(cno.text, 'lxml')
-            my_id = id_soup.find('uuid').text
-            dspace_obj.obj_id = my_id
-            rest_aux(dspace_obj, 5)
-
-        elif(op == 2): # Adicionar metadados ao item
-                       # Editar essa seção para incluir metadados no futuro
-            new_metadata = [{
-                            "key": "dc.title",
-                            "value": dspace_obj.name,
-                            "language": null
-                           }]
-            cnm = ses.put(url='%s/items/%s/metadata'%(link, dspace_obj.obj_id),
-                           headers=con_type, json=new_metadata)
-            if(cnm.status_code != 200):
-                print('Erro ao incluir metadados')
-
-        elif(op == 3):
-            # condicional que faz a diferenciação dos formatos dos arquivos
-            if(dspace_obj.extension == 'html'):
-                item_format = "HTML"
-                mimeType = "text/HTML"
-            else:
-                item_format = "Adobe PDF"
-                mimeType = "application/pdf"
-            new_bitstream = {
-                             "uuid":123,
-                             "name":dspace_obj.name,
-                             "handle":'123456789/0',
-                             "type":"bitstream",
-                             "link":"/rest/bitstreams/123",
-                             "expand":["parent","policies","all"],
-                             "bundleName":"ORIGINAL",
-                             "description":"",
-                             "format":item_format,
-                             "mimeType":mimeType,
-                             "sizeBytes": int(os.path.getsize(dspace_obj.path)),
-                             "parentObject":null,
-                             "retrieveLink":"/bitstreams/47166/retrieve",
-                             "checkSum":{"value": dspace_obj.bitstream_checksum(),
-                                         "checkSumAlgorithm":"MD5"},
-                             "sequenceId":1,
-                             "policies":null
-                            }
-            filename = {dspace_obj.name : open(dspace_obj.path, 'rb')}
-            cnm = ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, dspace_obj.item_id, dspace_obj.name,
-                                                                                            dspace_obj.extension),headers=con_type,
-                                                                                            json=new_bitstream, files=filename)
-#            assigned_uuid = DspaceRetrievebyName(dspace_obj.name+dspace_obj.extension, 'bitstreams')
-    else:
-        print('Could not authenticate')
-    return
-
 def DspaceRetrievebyName(name, obj_type):
     se = requests.session()
     jus_url = 'http://dev.jusbot.com.br/rest'
@@ -407,9 +322,9 @@ def DspaceCollectionCreator(name, com_name):
             if(col['name'] == name):
                 print('A comunidade {com_name} já possui uma coleção chamada {name}'.format(
                        com_name=com_name, name=name))
-                found_col = 1
+                found = 1
                 break
-        if(not found_col):
+        if(not found):
             null = None
             con_type = {'content-type' : 'application/json'}
             login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
@@ -438,14 +353,105 @@ def DspaceCollectionCreator(name, com_name):
         else:
             return
     else:
-        print('Não existe tal comunidade nomeada {com_name}'.format(com_name=com_name))
+        print('Não existe comunidade nomeada {com_name}'.format(com_name=com_name))
 
 # Criar um item pode acabar se tornando algo custoso dependendo do escopo da busca
-def DspaceItemCreator(name, col_name):
+def DspaceItemCreator(name, com_name, col_name):
     ses_item = requests.session()
     link = 'http://dev.jusbot.com.br/rest'
-    item_request = ses_item.get('%s/items'%link)
+    com_id = DspaceRetrievebyName(com_name, 'communities')
+    collections_request = ses_item.get('%s/communities/%s/collections'%(link, com_id))
+    if(collections_request.status_code == 200):
+        col_id = DspaceRetrievebyName(col_name, 'communities/%s/collections'%com_id)
+        item_request = ses_item.get('%s/collections/%s/items'%(link, col_id))
+        if(item_request.status_code == 200):
+            found  = 0
+            item_list = item_request.json()
+            for item in item_list:
+                if(item['name'] == name):
+                    print('Já existe um item {name} na coleção {col}'.format(name=name, col=col_name))
+                    found = 1
+                    break
+            if(not found):
+                null = None
+                login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+                login = ses_item.post(url='%s/login'%link, data=login_info)
+                con_type = {'content-type' : 'application/json'}
+                new_item = {
+                           "uuid":1,
+                           "name":null,
+                           "handle":"123456789/13470",
+                           "type":"item",
+                           "link":"/rest/items/1",
+                           "expand":["metadata", "parentCollection",
+                                     "parentCollectionList","parentCommunityList","bitstreams","all"],
+                           "lastModified":" ",
+                           "parentCollection":null,
+                           "parentCollectionList":null,
+                           "parentCommunityList":null,
+                           "bitstreams":null,
+                           "archived":"true",
+                           "withdrawn":"false"
+                          }
+                cnit = ses_item.post(url='%s/collections/%s/items'%(link, col_id),
+                                headers=con_type, json=new_item)
+                id_soup = bs4.BeautifulSoup(cnit.text, 'lxml')
+                item_id = id_soup.find('uuid').text
+    #---------------------------------------------------------------------------------------------------
+                new_metadata = [{
+                                "key": "dc.title",
+                                "value": name,
+                                "language": null
+                               }]
+    #---------------------------------------------------------------------------------------------------
+                cnm = ses_item.put(url='%s/items/%s/metadata'%(link, item_id),
+                                headers=con_type, json=new_metadata)
+                if(cnm.status_code != 200):
+                    print('Erro ao incluir metadados')
+        else:
+            print('Não existe coleção nomeada {name}'.format(name=col_name))
+        return
+    else:
+        print('Não existe comunidade nomeada {name}'.format(name=com_name))
+'''
+            if(dspace_obj.extension == 'html'):
+                item_format = "HTML"
+                mimeType = "text/HTML"
+            else:
+                item_format = "Adobe PDF"
+                mimeType = "application/pdf"
+            new_bitstream = {
+                             "uuid":123,
+                             "name":dspace_obj.name,
+                             "handle":'123456789/0',
+                             "type":"bitstream",
+                             "link":"/rest/bitstreams/123",
+                             "expand":["parent","policies","all"],
+                             "bundleName":"ORIGINAL",
+                             "description":"",
+                             "format":item_format,
+                             "mimeType":mimeType,
+                             "sizeBytes": int(os.path.getsize(dspace_obj.path)),
+                             "parentObject":null,
+                             "retrieveLink":"/bitstreams/47166/retrieve",
+                             "checkSum":{"value": dspace_obj.bitstream_checksum(),
+                                         "checkSumAlgorithm":"MD5"},
+                             "sequenceId":1,
+                             "policies":null
+                            }
+            filename = {dspace_obj.name : open(dspace_obj.path, 'rb')}
+            cnm = ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, dspace_obj.item_id, dspace_obj.name,
+                                                                                            dspace_obj.extension),headers=con_type,
+                                                                                            json=new_bitstream, files=filename)
 
+ Item existe dentro da coleção?
+ Coleção existe dentro da comunidade?
+
+'''
+def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
+    bit_ses = requests.session()
+    link = 'http://dev.jusbot.com.br/rest'
+    com_id = DspaceRetrievebyName(com_name, 'communities')
 
 
 # função principal
@@ -461,4 +467,4 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-DspaceCollectionCreator('Leis', 'STF')
+DspaceItemCreator('TESTE', 'STM','Leis')
