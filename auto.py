@@ -3,19 +3,27 @@
 # @email: samuelcoouto@hotmail.com
 # @desc: Programa que realiza submissões automáticas dentro de um repositório
 #        institucional que utiliza DSpace.
-# @version: 0.5
+# @version: 0.6
 
 import bs4, requests, os, sys, glob, errno, re, hashlib
 
-# Convenções nesse programa para comunicação com a api REST:
-# Por enquanto só criação para fazer os testes
-# Key#:                  Operação:
-#    1                    Criar uma comunidade
-#    2                    Criar uma sub-comunidade
-#    3                    Criar uma coleção
-#    4                    Criar um item(lei, jurisprudência)
-#    5                    Adicionar metadados ao item
-#    6                    Adicionar bitstreams ao item
+'''
+ Convenções nesse programa para comunicação com a api REST:
+ Por enquanto só criação para fazer os testes
+ Key#:                  Operação:
+    1                    Criar uma comunidade
+    2                    Criar uma sub-comunidade
+    3                    Criar uma coleção
+    4                    Criar um item(lei, jurisprudência)
+    5                    Adicionar metadados ao item
+    6                    Adicionar bitstreams ao item
+'''
+'''
+  Workflow do programa:
+  Cria as comunidades com base nos tribunais;
+  Cria as coleções: Leis e Jurisprudências para cada tribunal;
+  Cria itens e os popula com base nos arquivos
+'''
 
 # Classe polimórfica para
 #
@@ -181,69 +189,7 @@ def rest_aux(dspace_obj, op):
     jses = 'JSESSIONID=%s' % sessionID
     con_type = {'content-type' : 'application/json'}
     if(r.status_code == 200):
-        if(op == 1): # Criar uma comunidade
-            com_obj = {
-                       "uuid":dspace_obj.obj_id,
-                       "name":dspace_obj.name,
-                       "handle":"123456789/10213",
-                       "type":"community",
-                       "link":"/rest/communities/"+dspace_obj.obj_id,
-                       "expand":["parentCommunity","collections","subCommunities",
-                                 "logo","all"],
-                       "logo":null,
-                       "parentCommunity":null,
-                       "copyrightText":"",
-                       "introductoryText":"",
-                       "shortDescription":"",
-                       "sidebarText":"",
-                       "countItems":3,
-                       "subcommunities":[],
-                       "collections":[]
-                      }
-            ccom = ses.post(url='%s/communities' % link, headers=con_type,
-                            json=com_obj)
-        elif(op == 2): # Criar uma subcomunidade
-            subcom_obj = {
-                          "uuid":dspace_obj.obj_id,
-                          "name":dspace_obj.name,
-                          "handle":"123456789/10", # Número arbitrário
-                          "type":"community",
-                          "link":"/rest/communities/"+dspace_obj.obj_id,
-                          "expand":["parentCommunity","collections","subCommunities",
-                                    "logo","all"],
-                          "logo":null,
-                          "parentCommunity":dspace_obj.parent_name,
-                          "copyrightText":"",
-                          "introductoryText":"",
-                          "shortDescription":"",
-                          "sidebarText":"",
-                          "countItems":3,"subcommunities":[],
-                          "collections":[]
-                         }
-            sccom = ses.post(url='%s/communities/%d/communities'%(link, dspace_obj.parent_id),
-                                  headers=con_type, json=subcom_obj)
-        elif(op == 3): # Criar uma coleção
-            col_obj = {
-                       "uuid":dspace_obj.obj_id,
-                       "name":dspace_obj.name,
-                       "handle":"123456789/10214",
-                       "type":"collection",
-                       "link":"/rest/collections/"+dspace_obj.obj_id,
-                       "expand":["parentCommunityList","parentCommunity","items","license",
-                                 "logo","all"],
-                       "logo":null,
-                       "parentCommunity":null,
-                       "parentCommunityList":[],
-                       "items":[],"license":null,
-                       "copyrightText":"",
-                       "introductoryText":"",
-                       "shortDescription":"",
-                       "sidebarText":"",
-                       "numberItems":3
-                      }
-            ccol = ses.post(url='%s/communities/%s/collections'%(link, dspace_obj.parent_id),
-                                 headers=con_type, json=col_obj)
-        elif(op == 4): # Criar um item
+        elif(op == 1): # Criar um item
             new_obj = {
                        "uuid":dspace_obj.obj_id,
                        "name":dspace_obj.name,
@@ -267,7 +213,7 @@ def rest_aux(dspace_obj, op):
             dspace_obj.obj_id = my_id
             rest_aux(dspace_obj, 5)
 
-        elif(op == 5): # Adicionar metadados ao item
+        elif(op == 2): # Adicionar metadados ao item
                        # Editar essa seção para incluir metadados no futuro
             new_metadata = [{
                             "key": "dc.title",
@@ -279,7 +225,7 @@ def rest_aux(dspace_obj, op):
             if(cnm.status_code != 200):
                 print('Erro ao incluir metadados')
 
-        elif(op == 6):
+        elif(op == 3):
             # condicional que faz a diferenciação dos formatos dos arquivos
             if(dspace_obj.extension == 'html'):
                 item_format = "HTML"
@@ -306,11 +252,11 @@ def rest_aux(dspace_obj, op):
                              "sequenceId":1,
                              "policies":null
                             }
-#            cnm = ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, dspace_obj.item_id, dspace_obj.name,
-                                                                                #        dspace_obj.extension),headers=con_type, json=new_bitstream)
-            assigned_uuid = DspaceRetrievebyName(dspace_obj.name+dspace_obj.extension, 'bitstreams')
-            print(assigned_uuid)
-            update_bits = ses.put(url='%s/bitstreams/%s/data'%(link, assigned_uuid), data=dspace_obj.path)
+            filename = {dspace_obj.name : open(dspace_obj.path, 'rb')}
+            cnm = ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, dspace_obj.item_id, dspace_obj.name,
+                                                                                            dspace_obj.extension),headers=con_type,
+                                                                                            json=new_bitstream, files=filename)
+#            assigned_uuid = DspaceRetrievebyName(dspace_obj.name+dspace_obj.extension, 'bitstreams')
     else:
         print('Could not authenticate')
     return
@@ -409,9 +355,101 @@ def DspaceRestUploader():
     rest_aux(dspace, num_op)
     return
 
+# Cria as comunidades conforme o Workflow
+def DspaceCommunityCreator(name):
+    com_ses = requests.session()
+    link = 'http://dev.jusbot.com.br/rest'
+    community_list = com_ses.get('%s/communities'%link).json()
+    found = 0
+    for com in community_list:
+        if(com['name'] == name):
+            print('Comunidade já existe')
+            found = 1
+            break
+    if(not found):
+        null = None
+        con_type = {'content-type' : 'application/json'}
+        login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+        login = com_ses.post(url='%s/login'%link, data=login_info)
+        com_obj = {
+                   "uuid":1,
+                   "name":name,
+                   "handle":"123456789/10213",
+                   "type":"community",
+                   "link":"/rest/communities/1",
+                   "expand":["parentCommunity","collections","subCommunities",
+                             "logo","all"],
+                   "logo":null,
+                   "parentCommunity":null,
+                   "copyrightText":"",
+                   "introductoryText":"",
+                   "shortDescription":"",
+                   "sidebarText":"",
+                   "countItems":3,
+                   "subcommunities":[],
+                   "collections":[]
+                  }
+        ccom = com_ses.post(url='%s/communities' % link, headers=con_type, json=com_obj)
+        print('Comunidade {name} criada com sucesso'.format(name=name))
+    else:
+        return
+
+# TODO: Validar existência de comunidade
+def DspaceCollectionCreator(name, com_name):
+    col_ses = requests.session()
+    link = 'http://dev.jusbot.com.br/rest'
+    com_id = DspaceRetrievebyName(com_name, 'communities')
+    col_request = col_ses.get('%s/communities/%s/collections'%(link,com_id))
+    if(col_request.status_code == 200):
+        found_col = 0
+        collections_list = col_request.json()
+        for col in collections_list:
+            if(col['name'] == name):
+                print('A comunidade {com_name} já possui uma coleção chamada {name}'.format(
+                       com_name=com_name, name=name))
+                found_col = 1
+                break
+        if(not found_col):
+            null = None
+            con_type = {'content-type' : 'application/json'}
+            login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+            login = col_ses.post(url='%s/login'%link, data=login_info)
+            col_obj = {
+                       "uuid":1,
+                       "name":name,
+                       "handle":"123456789/10214",
+                       "type":"collection",
+                       "link":"/rest/collections/1",
+                       "expand":["parentCommunityList","parentCommunity","items","license",
+                                 "logo","all"],
+                       "logo":null,
+                       "parentCommunity":null,
+                       "parentCommunityList":[],
+                       "items":[],"license":null,
+                       "copyrightText":"",
+                       "introductoryText":"",
+                       "shortDescription":"",
+                       "sidebarText":"",
+                       "numberItems":3
+                      }
+            ccol = col_ses.post(url='%s/communities/%s/collections'%(link, com_id),
+                                 headers=con_type, json=col_obj)
+            print('Coleção {name} criada com sucesso!'.format(name=name))
+        else:
+            return
+    else:
+        print('Não existe tal comunidade nomeada {com_name}'.format(com_name=com_name))
+
+# Criar um item pode acabar se tornando algo custoso dependendo do escopo da busca
+def DspaceItemCreator(name, col_name):
+    ses_item = requests.session()
+    link = 'http://dev.jusbot.com.br/rest'
+    item_request = ses_item.get('%s/items'%link)
+
+
+
 # função principal
 def main():
-
     file_path = './test2/'
     directory = input("Select a directory to store the downloaded files:\n")
     if os.path.exists(file_path):
@@ -423,5 +461,4 @@ def main():
     else:
         print("Forneca um caminho valido!\n")
 
-mock_object = DspaceBitstream(name='Acórdão São Paulo', extension='pdf', path='./down2/AC990QOSPSÃOPAULO.pdf', item_id='b6c206c0-d9c7-4c07-89e6-3fc22dc73891')
-rest_aux(mock_object, 6)
+DspaceCollectionCreator('Leis', 'STF')
