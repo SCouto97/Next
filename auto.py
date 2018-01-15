@@ -25,62 +25,16 @@ import bs4, requests, os, sys, glob, errno, re, hashlib
   Cria as coleções: Leis e Jurisprudências para cada tribunal;
   Cria itens e os popula com base nos arquivos
 '''
-
-# Classe polimórfica para
-#
-class DspaceObject(object):
-    def __init__(self, local, authority, name, date, obj_id, parent_id):
-        self.local = local
+class LexmlObject(object):
+    def __init__(self, title, authority, date, local, desc):
+        self.title = title
         self.authority = authority
-        self.name = name
-        self.obj_id = obj_id
-        self.parent_id = parent_id
-
-class DspaceCommunity(DspaceObject):
-    def __init__(self, obj_id, name):
-        self.obj_id = obj_id
-        self.name = name
-
-class DspaceSubcommunity(DspaceObject):
-    def __init__(self, obj_id, name, parent_id):
-        self.obj_id = obj_id
-        self.name = name
-        self.parent_id = parent_id
-
-class DspaceCollection(DspaceObject):
-    def __init__(self, obj_id, name, parent_id):
-        self.obj_id = obj_id
-        self.name = name
-        self.parent_id = parent_id
-
-class DspaceItem(DspaceObject):
-    def __init__(self, obj_id, name, parent_id):
-        self.name = name
-        self.obj_id = obj_id
-        self.parent_id = parent_id
-
-# @item_id inserido por conta da necessidade de informar o item a inserir o stream
-class DspaceBitstream(DspaceObject):
-    def __init__(self, name, extension, path, item_id):
-        self.name = name
-        self.extension = extension
-        self.path = path
-        self.item_id = item_id
-
-    def bitstream_checksum(self):
-        return checkSum(self.path)
-
-
-class DspaceMetadata(DspaceObject):
-    def __init__(self, title, desc, local, authority):
-        self.title
+        self.date = date
         self.desc = desc
-        self.local = local
-        self.authority = authority
 
 # função de parsing coleta atributos sobre os metadados e chama a função de baixar
 # as urls contidas nesses dados
-def parsing_module(my_file, downl_dir):
+def parsing_module(my_file):
     print("Parsing file %s...\n" % (my_file))
     local_file = open(my_file, 'rb')
     soup = bs4.BeautifulSoup(local_file, 'lxml')
@@ -89,6 +43,8 @@ def parsing_module(my_file, downl_dir):
     autoridade = desc_elems[1].text
     titulo = desc_elems[2].text
     data = desc_elems[3].text
+    desc = desc_elems[4].text
+    lex_obj = LexmlObject(title=titulo, authority=autoridade, date=data, local=localidade, desc=desc)
     ext_elems = soup.findAll('span', {'class' : 'noprint'})
     l = []
     for e in ext_elems:
@@ -96,17 +52,20 @@ def parsing_module(my_file, downl_dir):
         if(len(r) != 0):
             l.append(r)
     if(len(l) != 0):
-        extension = 'doc'
+        lex_obj.extension = 'doc'
     else:
-        extension = 'pdf'
+        lex_obj.extension = 'pdf'
     url_elems = soup.findAll('a', {'class' : 'noprint', 'href' : True})
     refs = [] # cria uma lista de referências vazia
     for elem in url_elems:
         refs.append(elem['href'])
     valid_urls = [x for x in refs if "lex" not in x]
     valid_urls = [x for x in valid_urls if "legislacao" not in x]
+    lex_obj.links = []
     for url in valid_urls:
-        download_module(my_url=url, title=titulo, downl_path=downl_dir, ext=extension)
+        lex_obj.links.append(url)
+    return lex_obj
+#        download_module(my_url=url, title=titulo, downl_path=downl_dir, ext=extension)
 
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
 # foi generalizada para baixar links do sitemap
@@ -132,8 +91,10 @@ def download_module(my_url, title, downl_path, ext):
         print('ERROR')
         return
 
-    with open('%s/%s.%s' % (directory, local_title, ext), 'wb') as f:
+    path_to_file = '%s/%s.%s' % (directory, local_title, ext)
+    with open(path_to_file, 'wb') as f:
         f.write(my_request.content)
+    return path_to_file
 
 def checkSum(filename):
     checksum_md5 = hashlib.md5()
@@ -149,11 +110,11 @@ def crawl_sitemap():
     sitemap = requests.get(url).text
     links = re.findall('<loc>(.*?)</loc>', sitemap)
     count = 0
+    extension = 'html'
     for link in links:
         count += 1
         sep = link.split('/')
         nome = sep[4]
-        extension = 'html'
         download_module(my_url=link, downl_path='sitemap_data', title=nome, ext=extension)
     print('Number of pages crawled: %d\n' % count)
 
@@ -176,24 +137,21 @@ def extension_converter(path):
     new = 'html'
     for filename in glob.glob(os.path.join(path, old)):
         filename_new = extension_converter_aux(filename, new)
-        print('Old file name: %s' % filename_new)
+        print('Old file name: %s' % filename)
         os.rename(filename, filename_new)
-        print('Renamed to: %s' % new)
+        print('Renamed to: %s' % filename_new)
 
 def DspaceRetrievebyName(name, obj_type):
     se = requests.session()
     jus_url = 'http://dev.jusbot.com.br/rest'
     object_json = se.get(url='%s/%s'%(jus_url, obj_type)).json()
+    uuid = None
     if(object_json != []):
         for obj in object_json:
             if(obj['name'] == name):
                 uuid = obj['uuid']
                 break
-    if(uuid):
-        return uuid
-    else:
-        print('Não consegui achar tal objeto')
-        return None
+    return uuid
 
 def DspaceRestRemoval():
     login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
@@ -230,49 +188,6 @@ def DspaceRestRemoval():
     if(num_op == 6):
         os.system('exit')
 
-# Versão de teste das funcionalidades
-def DspaceRestUploader():
-    print('Digite o tipo de objeto a ser criado:\n')
-    print('1. Comunidade\n2. Subcomunidade\n3. Coleção\n4. Item\n5. Atualização de Metadados\n6. Bitstream\n')
-    num_op = int(input('>> '))
-    if(num_op == 1):
-        iden = input('Digite o identificador da comunidade\n')
-        nome = input('Digite o nome da comunidade\n')
-        dspace = DspaceCommunity(iden, nome)
-    elif(num_op == 2):
-        iden = input('Digite o identificador da subcomunidade\n')
-        nome = input('Digite o nome da subcomunidade\n')
-        parent_name = input('Digite o nome da comunidade pai dessa subcomunidade\n')
-        parent_id = DspaceRetrievebyName(parent_name, 'communities')
-        dspace = DspaceSubcommunity(iden, nome, parent_id)
-    elif(num_op == 3):
-        iden = input('Digite o identificador da coleção\n')
-        nome = input('Digite o nome da coleção\n')
-        parent_name = input('Digite o nome da comunidade pai dessa coleção\n')
-        parent_id = DspaceRetrievebyName(parent_name, 'communities')
-        dspace = DspaceCollection(iden, nome, parent_id)
-    elif(num_op == 4):
-        iden = input('Digite o identificador do item\n')
-        nome = input('Digite o nome do item\n')
-        parent_name = input('Digite o nome da coleção o qual esse item pertence\n')
-        parent_id = DspaceRetrievebyName(parent_name, 'collections')
-        dspace = DspaceItem(iden, nome, parent_id)
-    elif(num_op == 5):
-        name = input('Digite o nome do bitstream\n')
-        ext = input('Digite a extensão do bitstream\n')
-        path = input('Digite o caminho para o bitstream\n')
-        item_id = input('Digite o identificador do bitstream\n')
-        dspace = DspaceBitstream(name, ext, path, item_id)
-    elif(num_op == 6):
-        title = input('Digite o titulo para o item\n')
-        desc = input('Digite o abstract do artigo\n')
-        local = input('Digite o local\n')
-        authority = input('Digite a autoridade\n')
-        dspace = DspaceMetadata(title, desc, local, authority)
-
-    rest_aux(dspace, num_op)
-    return
-
 # Cria as comunidades conforme o Workflow
 def DspaceCommunityCreator(name):
     com_ses = requests.session()
@@ -281,7 +196,7 @@ def DspaceCommunityCreator(name):
     found = 0
     for com in community_list:
         if(com['name'] == name):
-            print('Comunidade já existe')
+            print('Com: Comunidade já existe')
             found = 1
             break
     if(not found):
@@ -308,9 +223,58 @@ def DspaceCommunityCreator(name):
                    "collections":[]
                   }
         ccom = com_ses.post(url='%s/communities' % link, headers=con_type, json=com_obj)
-        print('Comunidade {name} criada com sucesso'.format(name=name))
+        print('Com: Comunidade {name} criada com sucesso'.format(name=name))
     else:
         return
+
+def DspaceSubcommunityCreator(name, com_name):
+    subcom_ses = requests.session()
+    link = 'http://dev.jusbot.com.br/rest'
+    com_id = DspaceRetrievebyName(com_name, 'communities/top-communities')
+    subcom_request = subcom_ses.get('%s/communities/%s/communities'%(link,com_id))
+    if(subcom_request.status_code == 200):
+        found = False
+        subcom_list = subcom_request.json()
+        for sc in subcom_list:
+            if(sc['name'] == name):
+                print('Subc: A comunidade {com_name} já possui uma subcomunidade chamada {name}'.format(
+                       com_name=com_name, name=name))
+                found = True
+                break
+        if(not found):
+            null = None
+            con_type = {'content-type' : 'application/json'}
+            login_info = {'email' : 'samuel.a.couto@gmail.com', 'password' : 'Senha123'}
+            login = subcom_ses.post(url='%s/login'%link, data=login_info)
+            subcom_id = DspaceRetrievebyName(name, 'communities')
+            subcom_obj = {
+                       "uuid":1,
+                       "name":name,
+                       "handle":"123456789/10213",
+                       "type":"community",
+                       "link":"/rest/communities/1",
+                       "expand":["parentCommunity","collections","subCommunities",
+                                 "logo","all"],
+                       "logo":null,
+                       "parentCommunity":null,
+                       "copyrightText":"",
+                       "introductoryText":"",
+                       "shortDescription":"",
+                       "sidebarText":"",
+                       "countItems":3,
+                       "subcommunities":[],
+                       "collections":[]
+                      }
+            csubcom = subcom_ses.post(url='%s/communities/%s/communities'%(link, com_id),
+                                 headers=con_type, json=subcom_obj)
+            if(csubcom.status_code == 200):
+                print('Subc: Subcomunidade {name} criada com sucesso!'.format(name=name))
+            else:
+                return
+        else:
+            return
+    else:
+        print('Subc: Não existe comunidade nomeada {com_name}'.format(com_name=com_name))
 
 # TODO: Validar existência de comunidade
 def DspaceCollectionCreator(name, com_name):
@@ -318,12 +282,13 @@ def DspaceCollectionCreator(name, com_name):
     link = 'http://dev.jusbot.com.br/rest'
     com_id = DspaceRetrievebyName(com_name, 'communities')
     col_request = col_ses.get('%s/communities/%s/collections'%(link,com_id))
+    print(com_name)
     if(col_request.status_code == 200):
-        found_col = 0
+        found = 0
         collections_list = col_request.json()
         for col in collections_list:
             if(col['name'] == name):
-                print('A comunidade {com_name} já possui uma coleção chamada {name}'.format(
+                print('Col: A comunidade {com_name} já possui uma coleção chamada {name}'.format(
                        com_name=com_name, name=name))
                 found = 1
                 break
@@ -352,14 +317,14 @@ def DspaceCollectionCreator(name, com_name):
                       }
             ccol = col_ses.post(url='%s/communities/%s/collections'%(link, com_id),
                                  headers=con_type, json=col_obj)
-            print('Coleção {name} criada com sucesso!'.format(name=name))
+            print('Col: Coleção {name} criada com sucesso!'.format(name=name))
         else:
             return
     else:
-        print('Não existe comunidade nomeada {com_name}'.format(com_name=com_name))
+        print('Col: Não existe comunidade nomeada {com_name}'.format(com_name=com_name))
 
 # Criar um item pode acabar se tornando algo custoso dependendo do escopo da busca
-def DspaceItemCreator(name, com_name, col_name):
+def DspaceItemCreator(name, com_name, col_name, desc):
     ses_item = requests.session()
     link = 'http://dev.jusbot.com.br/rest'
     com_id = DspaceRetrievebyName(com_name, 'communities')
@@ -372,7 +337,7 @@ def DspaceItemCreator(name, com_name, col_name):
             item_list = item_request.json()
             for item in item_list:
                 if(item['name'] == name):
-                    print('Já existe um item {name} na coleção {col}'.format(name=name, col=col_name))
+                    print('Item: Já existe um item {name} na coleção {col}'.format(name=name, col=col_name))
                     found = 1
                     break
             if(not found):
@@ -404,18 +369,23 @@ def DspaceItemCreator(name, com_name, col_name):
                 new_metadata = [{
                                 "key": "dc.title",
                                 "value": name,
-                                "language": null
+                                "language": "pt_BR"
+                               },
+                               {
+                                "key": "dc.description.abstract",
+                                "value": desc,
+                                "language": "pt_BR"
                                }]
     #---------------------------------------------------------------------------------------------------
                 cnm = ses_item.put(url='%s/items/%s/metadata'%(link, item_id),
                                 headers=con_type, json=new_metadata)
                 if(cnm.status_code != 200):
-                    print('Erro ao incluir metadados')
+                    print('Mtd: Erro ao incluir metadados')
         else:
-            print('Não existe coleção nomeada {name}'.format(name=col_name))
+            print('Item: Não existe coleção nomeada {name}'.format(name=col_name))
         return
     else:
-        print('Não existe comunidade nomeada {name}'.format(name=com_name))
+        print('Item: Não existe comunidade nomeada {name}'.format(name=com_name))
 
 def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
     bit_ses = requests.session()
@@ -429,8 +399,8 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
                 found = False
                 bitstream_list = bit_ses.get('%s/items/%s/bitstreams'%(link, item_id)).json()
                 for bit in bitstream_list:
-                    if(bit['name' == name]):
-                        print('O item {name1} já possui um bitstream com nome {name2}'.format(name1=item_name, name2=name))
+                    if(bit['name'] == name):
+                        print('Bts: O item {name1} já possui um bitstream com nome {name2}'.format(name1=item_name, name2=name))
                         found = True
                         break
                 if(not found):
@@ -468,26 +438,38 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
                         cnm = bit_ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, item_id, name, extension),
                                                                                       headers=con_type, json=new_bitstream, files=filename)
                 else:
-                    print('Não consegui')
                     return
             else:
-                print('Não consegui achar o item {name}'.format(name=item_name))
+                print('Bts: Não consegui achar o item {name}'.format(name=item_name))
         else:
-            print('Não consegui achar a coleção {name}'.format(name=col_name))
+            print('Bts: Não consegui achar a coleção {name}'.format(name=col_name))
     else:
-        print('Não consegui achar a comunidade {name}'.format(name=com_name))
+        print('Bts: Não consegui achar a comunidade {name}'.format(name=com_name))
         return
-# função principal
-def main():
-    file_path = './test2/'
-    directory = input("Select a directory to store the downloaded files:\n")
-    if os.path.exists(file_path):
-        for filename in glob.glob(os.path.join(file_path, '*.html')):
-            local_file = open(filename, 'rb')
-            soup = bs4.BeautifulSoup(local_file, 'lxml')
-            parsing_module(filename, directory)
-            local_file.close()
-    else:
-        print("Forneca um caminho valido!\n")
 
-DspaceUploadBitstream('TEST BIT', './down2/AC990QOSPSÃOPAULO.pdf', 'STM', 'Leis', 'TESTE')
+def main_workflow():
+    path_to_files = './testfolder/'
+    if os.path.exists(path_to_files):
+        for filename in glob.glob(os.path.join(path_to_files, '*')):
+            local_obj = parsing_module(filename)
+            downl_dir = './a'
+            index = 0
+            bitstream_list = []
+            for link in local_obj.links:
+                aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
+                bitstream_list.append(aux)
+            name_list = local_obj.authority.split('.')
+            name_list[1] = name_list[1].lstrip()
+            DspaceCommunityCreator(name_list[0])
+            if(len(name_list) > 1):
+                DspaceSubcommunityCreator(name=name_list[1], com_name=name_list[0])
+                index = 1
+            else:
+                index = 0
+            DspaceCollectionCreator('Leis', name_list[index])
+            DspaceItemCreator(local_obj.title, name_list[index], 'Leis', local_obj.desc)
+            DspaceUploadBitstream('original', bitstream_list[0], name_list[index], 'Leis', local_obj.title)
+    else:
+        print("Forneça um caminho válido!\n")
+
+main_workflow()
