@@ -1,4 +1,5 @@
 Meu repositório de programas Next
 
 instruções de execução:
-auto.py: no terminal, utilizar o comando: python3 auto.py
+auto.py: (modo verboso) no terminal, utilizar o comando: python3 auto.py
+         (modo silencioso) no terminal, utilizar o comoando python3 -O auto.py
