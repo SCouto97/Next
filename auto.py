@@ -33,8 +33,10 @@ class LexmlObject(object):
         self.local = local
         self.desc = desc
 
-# função de parsing coleta atributos sobre os metadados e chama a função de baixar
-# as urls contidas nesses dados
+'''
+    função de parsing coleta atributos sobre os metadados e retorna um objeto
+    com essas informações estruturadas
+'''
 def parsing_module(my_file):
     if __debug__:
         print("Parsing file %s...\n" % (my_file))
@@ -67,7 +69,6 @@ def parsing_module(my_file):
     for url in valid_urls:
         lex_obj.links.append(url)
     return lex_obj
-#        download_module(my_url=url, title=titulo, downl_path=downl_dir, ext=extension)
 
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
 # foi generalizada para baixar links do sitemap
@@ -456,7 +457,7 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
         return
 
 def main_workflow():
-    path_to_files = './sitemap_data/'
+    path_to_files = './testfolder/'
     if os.path.exists(path_to_files):
         for filename in glob.glob(os.path.join(path_to_files, '*')):
             local_obj = parsing_module(filename)
@@ -466,6 +467,14 @@ def main_workflow():
             for link in local_obj.links:
                 aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
                 bitstream_list.append(aux)
+            """    try:
+                    PyPDF2.PdfFileReader(open(aux, 'rb'))
+                except PyPDF2.utils.PdfReadError:
+                    print('Invalid format')
+                    file_extension_converter(aux, 'doc')
+                else:
+                    pass
+            """
             name_list = local_obj.authority.split('.')
             DspaceCommunityCreator(name_list[0])
             if(len(name_list) > 1):
@@ -484,5 +493,5 @@ def main_workflow():
     else:
         print("Forneça um caminho válido!\n")
 
-#crawl_sitemap()
+crawl_sitemap()
 #main_workflow()
