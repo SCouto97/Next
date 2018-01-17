@@ -7,7 +7,7 @@
 # @version: 0.6
 
 import bs4, requests, os, sys, glob, errno, re, hashlib
-
+import PyPDF2
 '''
  Convenções nesse programa para comunicação com a api REST:
  Por enquanto só criação para fazer os testes
@@ -65,6 +65,7 @@ def parsing_module(my_file):
         refs.append(elem['href'])
     valid_urls = [x for x in refs if "lex" not in x]
     valid_urls = [x for x in valid_urls if "legislacao" not in x]
+    valid_urls = [x for x in valid_urls if "consultaprocessual" not in x]
     lex_obj.links = []
     for url in valid_urls:
         lex_obj.links.append(url)
@@ -89,7 +90,7 @@ def download_module(my_url, title, downl_path, ext):
     if __debug__:
         print('Receiving from: %s' % my_url)
     try:
-        my_request = requests.get(my_url, timeout=10)
+        my_request = requests.get(my_url)
         if __debug__:
             print('HTTP status code: %d' % my_request.status_code)
             print('Request OK\n')
@@ -135,10 +136,11 @@ def getExtension(filename):
 # feita para ser usada em loop dentro de um diretório
 def file_extension_converter(filename, new_extension):
     l = filename.split('.')
-    ext = l[len(l)-1]
-    l[len(l)-1] = new_extension
-    filename = '.'.join(l)
-    return filename
+    ext = l[-1]
+    l[-1] = new_extension
+    filename_new = '.'.join(l)
+    os.rename(filename, filename_new)
+    return filename_new
 
 # função para mudar extensões dentro de um diretório(usar quando tiver erros de extensão)
 def dir_extension_converter(path):
@@ -401,7 +403,6 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
             if(item_id):
                 found = False
                 bitstream_list = bit_ses.get('%s/items/%s/bitstreams'%(link, item_id)).json()
-                print(path_to_file)
                 extension = getExtension(path_to_file)
                 for bit in bitstream_list:
                     if(bit['name'] == '%s.%s'%(name, extension)):
@@ -420,32 +421,33 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
                     else:
                         item_format = "Adobe PDF"
                         mimeType = "application/pdf"
-                        new_bitstream = {
-                                     "uuid":123,
-                                     "name":name,
-                                     "handle":'123456789/0',
-                                     "type":"bitstream",
-                                     "link":"/rest/bitstreams/123",
-                                     "expand":["parent","policies","all"],
-                                     "bundleName":"ORIGINAL",
-                                     "description":"",
-                                     "format":item_format,
-                                     "mimeType":mimeType,
-                                     "sizeBytes": int(os.path.getsize(path_to_file)),
-                                     "parentObject":null,
-                                     "retrieveLink":"/bitstreams/47166/retrieve",
-                                     "checkSum":{"value": checkSum(path_to_file),
-                                                 "checkSumAlgorithm":"MD5"},
-                                     "sequenceId":1,
-                                     "policies":null
-                                    }
-                        filename = {name : open(path_to_file, 'rb')}
-                        cnm = bit_ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, item_id, name, extension),
-                                                                                      headers=con_type, json=new_bitstream, files=filename)
+                    new_bitstream = {
+                                 "uuid":123,
+                                 "name":name,
+                                 "handle":'123456789/0',
+                                 "type":"bitstream",
+                                 "link":"/rest/bitstreams/123",
+                                 "expand":["parent","policies","all"],
+                                 "bundleName":"ORIGINAL",
+                                 "description":"",
+                                 "format":item_format,
+                                 "mimeType":mimeType,
+                                 "sizeBytes": int(os.path.getsize(path_to_file)),
+                                 "parentObject":null,
+                                 "retrieveLink":"/bitstreams/47166/retrieve",
+                                 "checkSum":{"value": checkSum(path_to_file),
+                                             "checkSumAlgorithm":"MD5"},
+                                 "sequenceId":1,
+                                 "policies":null
+                                }
+                    filename = {name : open(path_to_file, 'rb')}
+                    cnm = bit_ses.post(url='%s/items/%s/bitstreams?name=%s.%s&description=description'%(link, item_id, name, extension),
+                                                                                  headers=con_type, json=new_bitstream, files=filename)
+                    if __debug__:
                         if(cnm.status_code == 200):
-                            if __debug__:
-                                print('Bitstream incluído com sucesso')
-                            print('Submissão bem-sucedida')
+                            print('Bts: Bitstream incluído com sucesso')
+                        else:
+                            print('Bts: Não consegui incluir o bitstream')
                 else:
                     return
             else:
@@ -467,31 +469,34 @@ def main_workflow():
             for link in local_obj.links:
                 aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
                 bitstream_list.append(aux)
-            """    try:
-                    PyPDF2.PdfFileReader(open(aux, 'rb'))
-                except PyPDF2.utils.PdfReadError:
-                    print('Invalid format')
-                    file_extension_converter(aux, 'doc')
+            '''    if(aux is not None):
+                    try:
+                        PyPDF2.PdfFileReader(open(aux, 'rb'))
+                    except PyPDF2.utils.PdfReadError:
+                        if __debug__:
+                            print('Invalid format')
+                        aux = file_extension_converter(aux, 'html')
+                    else:
+                        continue
+            '''
+            if(bitstream_list != None):
+                name_list = local_obj.authority.split('.')
+                DspaceCommunityCreator(name_list[0])
+                if(len(name_list) > 1):
+                    name_list[1] = name_list[1].lstrip()
+                    DspaceSubcommunityCreator(name=name_list[1], com_name=name_list[0])
+                    index = 1
                 else:
-                    pass
-            """
-            name_list = local_obj.authority.split('.')
-            DspaceCommunityCreator(name_list[0])
-            if(len(name_list) > 1):
-                name_list[1] = name_list[1].lstrip()
-                DspaceSubcommunityCreator(name=name_list[1], com_name=name_list[0])
-                index = 1
-            else:
-                index = 0
-            DspaceCollectionCreator('Leis', name_list[index])
-            DspaceItemCreator(local_obj.title, name_list[index], 'Leis', local_obj.desc, local_obj.date, local_obj.local)
-            bts_name = 'original'
-            if(bts_name is not None):
-                bts_name = bitstream_list[0].split('/')[-1]
-                bts_name = bts_name.split('.')[0]
-            DspaceUploadBitstream(bts_name, bitstream_list[0], name_list[index], 'Leis', local_obj.title)
+                    index = 0
+                DspaceCollectionCreator('Leis', name_list[index])
+                DspaceItemCreator(local_obj.title, name_list[index], 'Leis', local_obj.desc, local_obj.date, local_obj.local)
+                bts_name = 'document'
+#               if(bts_name is not None):
+#                   bts_name = bitstream_list[0].split('/')[-1]
+#                   bts_name = bts_name.split('.')[0]
+                DspaceUploadBitstream(bts_name, bitstream_list[0], name_list[index], 'Leis', local_obj.title)
     else:
         print("Forneça um caminho válido!\n")
 
-crawl_sitemap()
-#main_workflow()
+#crawl_sitemap()
+main_workflow()
