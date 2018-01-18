@@ -8,15 +8,14 @@ import io
     fonte: https://xiaofeima1990.github.io/2016/12/19/extract-text-from-sanned-pdf/
 '''
 
-def scan_pdf():
+def scan_pdf(path_to_pdf):
     tool = pyocr.get_available_tools()[0]
     lang = tool.get_available_languages()[0]
 
     req_image = []
     final_text = []
 
-    path_to_pdf = './aaa/document.pdf'
-    image_pdf =  Image(filename=path_to_pdf, resolution=300)
+    image_pdf =  Image(filename=path_to_pdf, resolution=350)
     image_jpeg = image_pdf.convert('jpeg')
 
     for img in image_jpeg.sequence:
@@ -31,5 +30,7 @@ def scan_pdf():
         )
         final_text.append(txt)
 
-    print(final_text)
-scan_pdf()
+    return final_text
+
+aa = scan_pdf('./files_to_send/doc.pdf')
+print(aa)
