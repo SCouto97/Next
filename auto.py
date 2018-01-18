@@ -7,18 +7,6 @@
 # @version: 0.6
 
 import bs4, requests, os, sys, glob, errno, re, hashlib
-import PyPDF2
-'''
- Convenções nesse programa para comunicação com a api REST:
- Por enquanto só criação para fazer os testes
- Key#:                  Operação:
-    1                    Criar uma comunidade
-    2                    Criar uma sub-comunidade
-    3                    Criar uma coleção
-    4                    Criar um item(lei, jurisprudência)
-    5                    Adicionar metadados ao item
-    6                    Adicionar bitstreams ao item
-'''
 '''
   Workflow do programa:
   Cria as comunidades com base nos tribunais;
@@ -76,7 +64,6 @@ def parsing_module(my_file):
 # problema no site http://legislacao.planalto.gov.br
 # TODO: tratar exceção 404
 def download_module(my_url, title, downl_path, ext):
-    local_title = title
     #para remover caracteres invalidos na hora de salvar o arquivo
     directory = "%s" % (downl_path)
     try:
@@ -85,12 +72,13 @@ def download_module(my_url, title, downl_path, ext):
         if e.errno != errno.EEXIST:
             raise
     for ch in ['/', '-', ' ', ';', ':', '.', 'º', 'ª', ',']:
-        local_title = local_title.replace(ch, '')
-    local_title = local_title.lower()
+        title = title.replace(ch, '')
+    title = title.lower()
     if __debug__:
         print('Receiving from: %s' % my_url)
     try:
         my_request = requests.get(my_url)
+        ext = 'pdf' if(re.findall('\%PDF', my_request.text) != []) else 'html'
         if __debug__:
             print('HTTP status code: %d' % my_request.status_code)
             print('Request OK\n')
@@ -98,8 +86,7 @@ def download_module(my_url, title, downl_path, ext):
         if __debug__:
             print('ERROR')
         return
-
-    path_to_file = '%s/%s.%s' % (directory, local_title, ext)
+    path_to_file = '%s/%s.%s' % (directory, title, ext)
     with open(path_to_file, 'wb') as f:
         f.write(my_request.content)
     return path_to_file
@@ -469,17 +456,7 @@ def main_workflow():
             for link in local_obj.links:
                 aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
                 bitstream_list.append(aux)
-            '''    if(aux is not None):
-                    try:
-                        PyPDF2.PdfFileReader(open(aux, 'rb'))
-                    except PyPDF2.utils.PdfReadError:
-                        if __debug__:
-                            print('Invalid format')
-                        aux = file_extension_converter(aux, 'html')
-                    else:
-                        continue
-            '''
-            if(bitstream_list != None):
+            if(bitstream_list != []):
                 name_list = local_obj.authority.split('.')
                 DspaceCommunityCreator(name_list[0])
                 if(len(name_list) > 1):
