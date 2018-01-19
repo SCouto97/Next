@@ -7,6 +7,8 @@
 # @version: 0.6
 
 import bs4, requests, os, sys, glob, errno, re, hashlib
+from ocr_module import scan_pdf
+from parse_metadata import parse_file
 '''
   Workflow do programa:
   Cria as comunidades com base nos tribunais;
@@ -66,29 +68,35 @@ def parsing_module(my_file):
 def download_module(my_url, title, downl_path, ext):
     #para remover caracteres invalidos na hora de salvar o arquivo
     directory = "%s" % (downl_path)
-    try:
-        os.makedirs(directory)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    for ch in ['/', '-', ' ', ';', ':', '.', 'º', 'ª', ',']:
-        title = title.replace(ch, '')
-    title = title.lower()
-    if __debug__:
-        print('Receiving from: %s' % my_url)
-    try:
-        my_request = requests.get(my_url)
-        ext = 'pdf' if(re.findall('\%PDF', my_request.text) != []) else 'html'
-        if __debug__:
-            print('HTTP status code: %d' % my_request.status_code)
-            print('Request OK\n')
-    except requests.exceptions.RequestException as e:
-        if __debug__:
-            print('ERROR')
+    path_to_file = '%s/%s' % (directory, title)
+    path_to_pdf = '%s.pdf' % path_to_file
+    path_to_html = '%s.html' % path_to_file
+    if(os.path.isfile(path_to_pdf) or os.path.isfile(path_to_html)):
         return
-    path_to_file = '%s/%s.%s' % (directory, title, ext)
-    with open(path_to_file, 'wb') as f:
-        f.write(my_request.content)
+    else:
+        try:
+            os.makedirs(directory)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        for ch in ['/', '-', ' ', ';', ':', '.', 'º', 'ª', ',']:
+            title = title.replace(ch, '')
+        title = title.lower()
+        if __debug__:
+            print('Receiving from: %s' % my_url)
+        try:
+            my_request = requests.get(my_url)
+            ext = 'pdf' if(re.findall('\%PDF', my_request.text) != []) else 'html'
+            if __debug__:
+                print('HTTP status code: %d' % my_request.status_code)
+                print('Request OK\n')
+        except requests.exceptions.RequestException as e:
+            if __debug__:
+                print('ERROR')
+            return
+        path_to_file = '%s/%s.%s' % (directory, title, ext)
+        with open(path_to_file, 'wb') as f:
+            f.write(my_request.content)
     return path_to_file
 
 def checkSum(filename):
@@ -109,9 +117,14 @@ def crawl_sitemap():
     for link in links:
         if __debug__:
             count += 1
-        sep = link.split('/')
-        nome = sep[4]
-        download_module(my_url=link, downl_path='sitemap_data', title=nome, ext=extension)
+        try:
+            sep = link.split('/')
+            nome = sep[4]
+            download_module(my_url=link, downl_path='sitemap_data', title=nome, ext=extension)
+        except TypeError as erro:
+            if __debug__:
+                print(erro)
+            return
     if __debug__:
         print('Number of pages crawled: %d\n' % count)
 
@@ -122,11 +135,17 @@ def getExtension(filename):
 # função criada para tentar corrigir alguns erros de extensão
 # feita para ser usada em loop dentro de um diretório
 def file_extension_converter(filename, new_extension):
-    l = filename.split('.')
-    ext = l[-1]
-    l[-1] = new_extension
-    filename_new = '.'.join(l)
-    os.rename(filename, filename_new)
+    try:
+        l = filename.split('.')
+        ext = l[-1]
+        l[-1] = new_extension
+        filename_new = '.'.join(l)
+        os.rename(filename, filename_new)
+    except TypeError as erro:
+        if __debug__:
+            print(erro)
+        return
+
     return filename_new
 
 # função para mudar extensões dentro de um diretório(usar quando tiver erros de extensão)
@@ -450,28 +469,32 @@ def main_workflow():
     if os.path.exists(path_to_files):
         for filename in glob.glob(os.path.join(path_to_files, '*')):
             local_obj = parsing_module(filename)
-            downl_dir = './files_to_send'
+            downl_dir = './files'
             index = 0
             bitstream_list = []
             for link in local_obj.links:
                 aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
                 bitstream_list.append(aux)
             if(bitstream_list != []):
-                name_list = local_obj.authority.split('.')
-                DspaceCommunityCreator(name_list[0])
-                if(len(name_list) > 1):
-                    name_list[1] = name_list[1].lstrip()
-                    DspaceSubcommunityCreator(name=name_list[1], com_name=name_list[0])
-                    index = 1
-                else:
-                    index = 0
-                DspaceCollectionCreator('Leis', name_list[index])
-                DspaceItemCreator(local_obj.title, name_list[index], 'Leis', local_obj.desc, local_obj.date, local_obj.local)
-                bts_name = 'document'
-#               if(bts_name is not None):
-#                   bts_name = bitstream_list[0].split('/')[-1]
-#                   bts_name = bts_name.split('.')[0]
-                DspaceUploadBitstream(bts_name, bitstream_list[0], name_list[index], 'Leis', local_obj.title)
+                try:
+                    name_list = local_obj.authority.split('.')
+                    DspaceCommunityCreator(name_list[0])
+                    if(len(name_list) > 1):
+                        name_list[1] = name_list[1].lstrip()
+                        DspaceSubcommunityCreator(name=name_list[1], com_name=name_list[0])
+                        index = 1
+                    else:
+                        index = 0
+                    DspaceCollectionCreator('Leis', name_list[index])
+                    DspaceItemCreator(local_obj.title, name_list[index], 'Leis', local_obj.desc, local_obj.date, local_obj.local)
+                    bts_name = 'document'
+                    for bts in bitstream_list:
+                        if bts.endswith('pdf'):
+                            DspaceUploadBitstream(bts_name, bts, name_list[index], 'Leis', local_obj.title)
+                except TypeError as erro:
+                    if __debug__:
+                        print(erro)
+                    return
     else:
         print("Forneça um caminho válido!\n")
 
