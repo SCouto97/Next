@@ -8,7 +8,7 @@
 
 import bs4, requests, os, sys, glob, errno, re, hashlib
 from ocr_module import scan_pdf
-from parse_metadata import parse_file
+from parse_metadata import *
 '''
   Workflow do programa:
   Cria as comunidades com base nos tribunais;
@@ -32,33 +32,38 @@ def parsing_module(my_file):
         print("Parsing file %s...\n" % (my_file))
     local_file = open(my_file, 'rb')
     soup = bs4.BeautifulSoup(local_file, 'lxml')
-    desc_elems = soup.findAll('div', {'class' : 'result_col2'})
-    localidade = desc_elems[0].text
-    autoridade = desc_elems[1].text
-    titulo = desc_elems[2].text
-    data = desc_elems[3].text
-    desc = desc_elems[4].text
-    lex_obj = LexmlObject(title=titulo, authority=autoridade, date=data, local=localidade, desc=desc)
-    ext_elems = soup.findAll('span', {'class' : 'noprint'})
-    l = []
-    for e in ext_elems:
-        r = re.findall('doc', e.text)
-        if(len(r) != 0):
-            l.append(r)
-    if(len(l) != 0):
-        lex_obj.extension = 'doc'
-    else:
-        lex_obj.extension = 'pdf'
-    url_elems = soup.findAll('a', {'class' : 'noprint', 'href' : True})
-    refs = [] # cria uma lista de referências vazia
-    for elem in url_elems:
-        refs.append(elem['href'])
-    valid_urls = [x for x in refs if "lex" not in x]
-    valid_urls = [x for x in valid_urls if "legislacao" not in x]
-    valid_urls = [x for x in valid_urls if "consultaprocessual" not in x]
-    lex_obj.links = []
-    for url in valid_urls:
-        lex_obj.links.append(url)
+    try:
+        desc_elems = soup.findAll('div', {'class' : 'result_col2'})
+        localidade = desc_elems[0].text
+        autoridade = desc_elems[1].text
+        titulo = desc_elems[2].text
+        data = desc_elems[3].text
+        desc = desc_elems[4].text
+        lex_obj = LexmlObject(title=titulo, authority=autoridade, date=data, local=localidade, desc=desc)
+        ext_elems = soup.findAll('span', {'class' : 'noprint'})
+        l = []
+        for e in ext_elems:
+            r = re.findall('doc', e.text)
+            if(len(r) != 0):
+                l.append(r)
+        if(len(l) != 0):
+            lex_obj.extension = 'doc'
+        else:
+            lex_obj.extension = 'pdf'
+        url_elems = soup.findAll('a', {'class' : 'noprint', 'href' : True})
+        refs = [] # cria uma lista de referências vazia
+        for elem in url_elems:
+            refs.append(elem['href'])
+        valid_urls = [x for x in refs if "lex" not in x]
+        valid_urls = [x for x in valid_urls if "legislacao" not in x]
+        valid_urls = [x for x in valid_urls if "consultaprocessual" not in x]
+        lex_obj.links = []
+        for url in valid_urls:
+            lex_obj.links.append(url)
+    except IndexError as erro:
+        if __debug__:
+            print(erro)
+        return None
     return lex_obj
 
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
@@ -120,7 +125,7 @@ def crawl_sitemap():
         try:
             sep = link.split('/')
             nome = sep[4]
-            download_module(my_url=link, downl_path='sitemap_data', title=nome, ext=extension)
+            download_module(my_url=link, downl_path='sitemap_data_2', title=nome, ext=extension)
         except TypeError as erro:
             if __debug__:
                 print(erro)
@@ -465,16 +470,21 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
         return
 
 def main_workflow():
-    path_to_files = './testfolder/'
+    path_to_files = './sitemap_data_2/'
     if os.path.exists(path_to_files):
         for filename in glob.glob(os.path.join(path_to_files, '*')):
             local_obj = parsing_module(filename)
             downl_dir = './files'
             index = 0
             bitstream_list = []
-            for link in local_obj.links:
-                aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
-                bitstream_list.append(aux)
+            try:
+                for link in local_obj.links:
+                    aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
+                    bitstream_list.append(aux)
+            except (TypeError, AttributeError) as erro:
+                if __debug__:
+                    print(erro)
+                continue
             if(bitstream_list != []):
                 try:
                     name_list = local_obj.authority.split('.')
@@ -485,16 +495,16 @@ def main_workflow():
                         index = 1
                     else:
                         index = 0
-                    DspaceCollectionCreator('Leis', name_list[index])
-                    DspaceItemCreator(local_obj.title, name_list[index], 'Leis', local_obj.desc, local_obj.date, local_obj.local)
+                    DspaceCollectionCreator('Jurisprudências', name_list[index])
+                    DspaceItemCreator(local_obj.title, name_list[index], 'Jurisprudências', local_obj.desc, local_obj.date, local_obj.local)
                     bts_name = 'document'
                     for bts in bitstream_list:
                         if bts.endswith('pdf'):
-                            DspaceUploadBitstream(bts_name, bts, name_list[index], 'Leis', local_obj.title)
-                except TypeError as erro:
+                            DspaceUploadBitstream(bts_name, bts, name_list[index], 'Jurisprudências', local_obj.title)
+                except (TypeError, IndexError, AttributeError) as erro:
                     if __debug__:
                         print(erro)
-                    return
+                    continue
     else:
         print("Forneça um caminho válido!\n")
 
