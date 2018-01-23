@@ -9,6 +9,8 @@
 import bs4, requests, os, sys, glob, errno, re, hashlib
 from ocr_module import scan_pdf
 from parse_metadata import *
+
+requests.packages.urllib3.disable_warnings()
 '''
   Workflow do programa:
   Cria as comunidades com base nos tribunais;
@@ -22,11 +24,16 @@ class LexmlObject(object):
         self.date = date
         self.local = local
         self.desc = desc
-
 '''
     função de parsing coleta atributos sobre os metadados e retorna um objeto
     com essas informações estruturadas
 '''
+
+def format_date(date):
+    date_list = date.split('/')
+    date = '%s-%s-%s' % (date_list[2], date_list[1], date_list[0])
+    return date
+
 def parsing_module(my_file):
     if __debug__:
         print("Parsing file %s...\n" % (my_file))
@@ -38,6 +45,7 @@ def parsing_module(my_file):
         autoridade = desc_elems[1].text
         titulo = desc_elems[2].text
         data = desc_elems[3].text
+        data = format_date(data)
         desc = desc_elems[4].text
         lex_obj = LexmlObject(title=titulo, authority=autoridade, date=data, local=localidade, desc=desc)
         ext_elems = soup.findAll('span', {'class' : 'noprint'})
@@ -69,7 +77,6 @@ def parsing_module(my_file):
 # função que realizará os downloads dos documentos dentro das páginas do Lexml
 # foi generalizada para baixar links do sitemap
 # problema no site http://legislacao.planalto.gov.br
-# TODO: tratar exceção 404
 def download_module(my_url, title, downl_path, ext):
     #para remover caracteres invalidos na hora de salvar o arquivo
     directory = "%s" % (downl_path)
@@ -90,7 +97,7 @@ def download_module(my_url, title, downl_path, ext):
         if __debug__:
             print('Receiving from: %s' % my_url)
         try:
-            my_request = requests.get(my_url)
+            my_request = requests.get(url=my_url, verify=False)
             ext = 'pdf' if(re.findall('\%PDF', my_request.text) != []) else 'html'
             if __debug__:
                 print('HTTP status code: %d' % my_request.status_code)
@@ -110,7 +117,6 @@ def checkSum(filename):
         for chunk in iter(lambda: f.read(4096), b""):
             checksum_md5.update(chunk)
     return checksum_md5.hexdigest()
-
 
 # função que obtém os arquivos de metadados dos sites do lexml
 def crawl_sitemap():
@@ -320,7 +326,7 @@ def DspaceCollectionCreator(name, com_name):
             print('Col: Não existe comunidade nomeada {com_name}'.format(com_name=com_name))
 
 # Criar um item pode acabar se tornando algo custoso dependendo do escopo da busca
-def DspaceItemCreator(name, com_name, col_name, desc, date, local):
+def DspaceItemCreator(name, com_name, col_name, desc, date, local, source):
     ses_item = requests.session()
     link = 'http://dev.jusbot.com.br/rest'
     com_id = DspaceRetrievebyName(com_name, 'communities')
@@ -387,6 +393,11 @@ def DspaceItemCreator(name, com_name, col_name, desc, date, local):
                                {
                                 "key": "dc.description.provenance",
                                 "value": local,
+                                "language": "pt_BR"
+                               },
+                               {
+                                "key": "dc.source.uri",
+                                "value": source,
                                 "language": "pt_BR"
                                }]
     #---------------------------------------------------------------------------------------------------
@@ -470,17 +481,19 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
         return
 
 def main_workflow():
-    path_to_files = './sitemap_data_2/'
+    path_to_files = './sitemap_data/'
     if os.path.exists(path_to_files):
         for filename in glob.glob(os.path.join(path_to_files, '*')):
             local_obj = parsing_module(filename)
             downl_dir = './files'
             index = 0
             bitstream_list = []
+            source = ''
             try:
                 for link in local_obj.links:
                     aux = download_module(my_url=link, title=local_obj.title, downl_path=downl_dir, ext=local_obj.extension)
                     bitstream_list.append(aux)
+                    source = 'URL Original: %s\n'%link
             except (TypeError, AttributeError) as erro:
                 if __debug__:
                     print(erro)
@@ -495,8 +508,9 @@ def main_workflow():
                         index = 1
                     else:
                         index = 0
-                    DspaceCollectionCreator('Jurisprudências', name_list[index])
-                    DspaceItemCreator(local_obj.title, name_list[index], 'Jurisprudências', local_obj.desc, local_obj.date, local_obj.local)
+                    col_name = find_category(local_obj.title)
+                    DspaceCollectionCreator(col_name, name_list[index])
+                    DspaceItemCreator(local_obj.title, name_list[index], 'Jurisprudências', local_obj.desc, local_obj.date, local_obj.local, source)
                     bts_name = 'document'
                     for bts in bitstream_list:
                         if bts.endswith('pdf'):
