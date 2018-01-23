@@ -143,34 +143,6 @@ def getExtension(filename):
     parts = filename.split('.')
     return parts[-1]
 
-# função criada para tentar corrigir alguns erros de extensão
-# feita para ser usada em loop dentro de um diretório
-def file_extension_converter(filename, new_extension):
-    try:
-        l = filename.split('.')
-        ext = l[-1]
-        l[-1] = new_extension
-        filename_new = '.'.join(l)
-        os.rename(filename, filename_new)
-    except TypeError as erro:
-        if __debug__:
-            print(erro)
-        return
-
-    return filename_new
-
-# função para mudar extensões dentro de um diretório(usar quando tiver erros de extensão)
-def dir_extension_converter(path):
-    old = '*.pdf'
-    new = 'html'
-    for filename in glob.glob(os.path.join(path, old)):
-        filename_new = file_extension_converter(filename, new)
-        if __debug__:
-            print('Old file name: %s' % filename)
-        os.rename(filename, filename_new)
-        if __debug__:
-            print('Renamed to: %s' % filename_new)
-
 def DspaceRetrievebyName(name, obj_type):
     se = requests.session()
     jus_url = 'http://dev.jusbot.com.br/rest'
