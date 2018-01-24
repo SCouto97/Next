@@ -131,7 +131,7 @@ def crawl_sitemap():
         try:
             sep = link.split('/')
             nome = sep[4]
-            download_module(my_url=link, downl_path='sitemap_data_2', title=nome, ext=extension)
+            download_module(my_url=link, downl_path='sitemap_data_3', title=nome, ext=extension)
         except TypeError as erro:
             if __debug__:
                 print(erro)
@@ -453,7 +453,7 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
         return
 
 def main_workflow():
-    path_to_files = './sitemap_data/'
+    path_to_files = './sitemap_data_3/'
     if os.path.exists(path_to_files):
         for filename in glob.glob(os.path.join(path_to_files, '*')):
             local_obj = parsing_module(filename)
@@ -482,17 +482,21 @@ def main_workflow():
                         index = 0
                     col_name = find_category(local_obj.title)
                     DspaceCollectionCreator(col_name, name_list[index])
-                    DspaceItemCreator(local_obj.title, name_list[index], 'Jurisprudências', local_obj.desc, local_obj.date, local_obj.local, source)
+                    DspaceItemCreator(local_obj.title, name_list[index], col_name, local_obj.desc, local_obj.date, local_obj.local, source)
                     bts_name = 'document'
                     for bts in bitstream_list:
                         if bts.endswith('pdf'):
-                            DspaceUploadBitstream(bts_name, bts, name_list[index], 'Jurisprudências', local_obj.title)
-                except (TypeError, IndexError, AttributeError) as erro:
+                            DspaceUploadBitstream(bts_name, bts, name_list[index], col_name, local_obj.title)
+                except (TypeError, IndexError, AttributeError, ConnectionError) as erro:
                     if __debug__:
                         print(erro)
                     continue
     else:
         print("Forneça um caminho válido!\n")
 
-#crawl_sitemap()
-main_workflow()
+def main():
+    #crawl_sitemap()
+    #main_workflow()
+
+if __name__ == '__main__':
+    main()
