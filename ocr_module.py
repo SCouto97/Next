@@ -15,7 +15,7 @@ def scan_pdf(path_to_pdf):
     req_image = []
     final_text = []
 
-    image_pdf =  Image(filename=path_to_pdf, resolution=350)
+    image_pdf =  Image(filename=path_to_pdf, resolution=300)
     image_jpeg = image_pdf.convert('jpeg')
 
     for img in image_jpeg.sequence:
@@ -31,6 +31,3 @@ def scan_pdf(path_to_pdf):
         final_text.append(txt)
 
     return final_text
-
-aa = scan_pdf('./files_to_send/doc.pdf')
-print(aa)
