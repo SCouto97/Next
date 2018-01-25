@@ -1,5 +1,5 @@
 def find_category(name):
-    jurisp_keys = ['AgR', 'Acórdão', 'Súmula', 'Orientação Jurisprudencial', 'Relação'
+    jurisp_keys = ['AgR', 'Acórdão', 'Súmula', 'Orientação Jurisprudencial', 'Relação',
                    'RE', 'HC', 'AI', 'SS', 'CR', 'MI', 'RMS', 'MDI', 'Rcl', 'AO', 'AC',
                    'ADI', 'Ext', 'MS', 'PET', 'CC']
 
@@ -9,7 +9,7 @@ def find_category(name):
                  'PORTARIA', 'Provimento', 'Recomendação', 'Regimento Interno',
                  'Resolução', 'RESOLUÇÃO']
 
-    prop_keys = ['PL', 'PROJETO DE LEI', 'PROJETO DE DECRETO', 'MPV', 'PLV', 'PRC'
+    prop_keys = ['PL', 'PROJETO DE LEI', 'PROJETO DE DECRETO', 'MPV', 'PLV', 'PRC',
                  'PROPOSTA DE EMENDA', 'PEC']
 
     other_keys = []
