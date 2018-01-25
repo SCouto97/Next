@@ -36,7 +36,7 @@ def format_date(date):
 
 def parsing_module(my_file):
     if __debug__:
-        print("Parsing file %s...\n" % (my_file))
+        print("Parsing file: %s\n" % (my_file))
     local_file = open(my_file, 'rb')
     soup = bs4.BeautifulSoup(local_file, 'lxml')
     try:
@@ -46,7 +46,10 @@ def parsing_module(my_file):
         titulo = desc_elems[2].text
         data = desc_elems[3].text
         data = format_date(data)
-        desc = desc_elems[4].text
+        if 'urn:' in desc_elems[4].text:
+            desc = ''
+        else:
+            desc = desc_elems[4].text
         lex_obj = LexmlObject(title=titulo, authority=autoridade, date=data, local=localidade, desc=desc)
         ext_elems = soup.findAll('span', {'class' : 'noprint'})
         l = []
@@ -68,6 +71,7 @@ def parsing_module(my_file):
         lex_obj.links = []
         for url in valid_urls:
             lex_obj.links.append(url)
+        local_file.close()
     except IndexError as erro:
         if __debug__:
             print(erro)
@@ -109,6 +113,7 @@ def download_module(my_url, title, downl_path, ext):
         path_to_file = '%s/%s.%s' % (directory, title, ext)
         with open(path_to_file, 'wb') as f:
             f.write(my_request.content)
+            f.close()
     return path_to_file
 
 def checkSum(filename):
@@ -116,6 +121,7 @@ def checkSum(filename):
     with open(filename, 'rb') as f:
         for chunk in iter(lambda: f.read(4096), b""):
             checksum_md5.update(chunk)
+        f.close()
     return checksum_md5.hexdigest()
 
 # função que obtém os arquivos de metadados dos sites do lexml
@@ -131,7 +137,7 @@ def crawl_sitemap():
         try:
             sep = link.split('/')
             nome = sep[4]
-            download_module(my_url=link, downl_path='sitemap_data_3', title=nome, ext=extension)
+            download_module(my_url=link, downl_path='sitemap_data', title=nome, ext=extension)
         except TypeError as erro:
             if __debug__:
                 print(erro)
@@ -453,10 +459,11 @@ def DspaceUploadBitstream(name, path_to_file, com_name, col_name, item_name):
         return
 
 def main_workflow():
-    path_to_files = './sitemap_data_3/'
+    path_to_files = './sitemap_data/'
     if os.path.exists(path_to_files):
         for filename in glob.glob(os.path.join(path_to_files, '*')):
             local_obj = parsing_module(filename)
+            os.remove(filename)
             downl_dir = './files'
             index = 0
             bitstream_list = []
@@ -496,7 +503,7 @@ def main_workflow():
 
 def main():
     #crawl_sitemap()
-    #main_workflow()
+    main_workflow()
 
 if __name__ == '__main__':
     main()
